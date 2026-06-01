@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+
+# База и локальные данные сервера
+server/regola.db
+server/regola.db-wal
+server/regola.db-shm
+*.db
+*.db-wal
+*.db-shm
