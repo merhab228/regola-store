@@ -6,10 +6,13 @@ dist/
 .DS_Store
 Thumbs.db
 
-# База и локальные данные сервера
+# Локальная база и данные сервера
 server/regola.db
 server/regola.db-wal
 server/regola.db-shm
 *.db
 *.db-wal
 *.db-shm
+
+# Временные SSH-ключи деплоя
+regola_vps_key*
