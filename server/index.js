@@ -36,11 +36,9 @@ if (ADMIN_ACCESS_KEY === "change-me" && process.env.NODE_ENV === "production") {
 }
 
 app.use(cors());
-app.use(express.json({ limit: "128kb" }));
+app.use(express.json({ limit: "35mb" }));
 
-app.get("/api/health", (_, res) => {
-  res.json({ ok: true });
-});
+app.get("/api/health", (_, res) => res.json({ ok: true }));
 
 app.get("/api/categories", (_, res) => {
   const rows = db.prepare("SELECT id, name FROM categories ORDER BY id ASC").all();
@@ -79,9 +77,7 @@ app.get("/api/products/:id", (req, res) => {
 });
 
 app.get("/api/me", authRequired, (req, res) => {
-  const user = db
-    .prepare("SELECT id, name, email, phone, address, is_admin FROM users WHERE id = ?")
-    .get(req.user.id);
+  const user = db.prepare("SELECT id, name, email, phone, address, is_admin FROM users WHERE id = ?").get(req.user.id);
   if (!user) return res.status(404).json({ message: "User not found" });
   return res.json(mapUser(user));
 });
@@ -142,27 +138,23 @@ app.patch("/api/admin/orders/:id/status", authRequired, adminRequired, (req, res
 app.post("/api/admin/products", authRequired, adminRequired, (req, res) => {
   const product = normalizeProductPayload(req.body);
   if (!product.price) return res.status(400).json({ message: "Укажите цену товара" });
+  if (!product.image) return res.status(400).json({ message: "Добавьте хотя бы одно фото товара" });
 
-  const result = db
-    .prepare(`
-      INSERT INTO products (name, price, category_id, description, image, stock, views, created_at, ozon_url, wb_url, ym_url, wb_price, ozon_price, ym_price)
-      VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
-      product.name,
-      product.price,
-      product.categoryId,
-      product.description,
-      product.image,
-      product.stock,
-      new Date().toISOString(),
-      product.ozonUrl,
-      product.wbUrl,
-      product.ymUrl,
-      product.wbPrice,
-      product.ozonPrice,
-      product.ymPrice
-    );
+  const result = db.prepare(`
+    INSERT INTO products (name, price, category_id, description, image, images_json, stock, views, created_at, ozon_url, wb_url, ym_url)
+    VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?)
+  `).run(
+    product.name,
+    product.price,
+    product.categoryId,
+    product.description,
+    product.image,
+    product.imagesJson,
+    new Date().toISOString(),
+    product.ozonUrl,
+    product.wbUrl,
+    product.ymUrl
+  );
   const row = db.prepare("SELECT * FROM products WHERE id = ?").get(Number(result.lastInsertRowid));
   res.status(201).json(mapProduct(row));
 });
@@ -170,12 +162,12 @@ app.post("/api/admin/products", authRequired, adminRequired, (req, res) => {
 app.put("/api/admin/products/:id", authRequired, adminRequired, (req, res) => {
   const product = normalizeProductPayload(req.body);
   if (!product.price) return res.status(400).json({ message: "Укажите цену товара" });
+  if (!product.image) return res.status(400).json({ message: "Добавьте хотя бы одно фото товара" });
 
   db.prepare(`
     UPDATE products
-    SET name = ?, price = ?, category_id = ?, description = ?, image = ?, stock = ?,
-        ozon_url = ?, wb_url = ?, ym_url = ?,
-        wb_price = ?, ozon_price = ?, ym_price = ?
+    SET name = ?, price = ?, category_id = ?, description = ?, image = ?, images_json = ?, stock = 0,
+        ozon_url = ?, wb_url = ?, ym_url = ?
     WHERE id = ?
   `).run(
     product.name,
@@ -183,13 +175,10 @@ app.put("/api/admin/products/:id", authRequired, adminRequired, (req, res) => {
     product.categoryId,
     product.description,
     product.image,
-    product.stock,
+    product.imagesJson,
     product.ozonUrl,
     product.wbUrl,
     product.ymUrl,
-    product.wbPrice,
-    product.ozonPrice,
-    product.ymPrice,
     Number(req.params.id)
   );
   const row = db.prepare("SELECT * FROM products WHERE id = ?").get(Number(req.params.id));
@@ -209,29 +198,28 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Regola API running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Regola API running on http://localhost:${PORT}`));
 
 function normalizeProductPayload(body) {
-  const wbPrice = normalizePrice(body.wbPrice);
-  const ozonPrice = normalizePrice(body.ozonPrice);
-  const ymPrice = normalizePrice(body.ymPrice);
-  const mainPrice = normalizePrice(body.price);
+  const images = normalizeImages(body.images, body.image);
   return {
     name: String(body.name || "").trim(),
-    price: mainPrice || wbPrice || ozonPrice || ymPrice,
+    price: normalizePrice(body.price),
     categoryId: Number(body.categoryId) || 1,
     description: String(body.description || "").trim(),
-    image: String(body.image || "").trim(),
-    stock: Math.max(0, Number(body.stock) || 0),
+    image: images[0] || "",
+    imagesJson: JSON.stringify(images),
     wbUrl: normalizeUrl(body.wbUrl),
     ozonUrl: normalizeUrl(body.ozonUrl),
     ymUrl: normalizeUrl(body.ymUrl),
-    wbPrice,
-    ozonPrice,
-    ymPrice,
   };
+}
+
+function normalizeImages(images, image) {
+  const list = [];
+  if (Array.isArray(images)) list.push(...images);
+  if (typeof image === "string") list.push(image);
+  return [...new Set(list.map((item) => String(item || "").trim()).filter(Boolean))].slice(0, 12);
 }
 
 function normalizePrice(value) {
@@ -272,9 +260,7 @@ function mapUser(user) {
 }
 
 function withItems(order) {
-  const items = db
-    .prepare("SELECT product_id as productId, name, qty, price FROM order_items WHERE order_id = ?")
-    .all(order.id);
+  const items = db.prepare("SELECT product_id as productId, name, qty, price FROM order_items WHERE order_id = ?").all(order.id);
   return {
     id: order.id,
     userId: order.user_id,
@@ -291,9 +277,7 @@ function withItems(order) {
 }
 
 function migrateLegacyAdminAccount() {
-  const admin = db
-    .prepare("SELECT id, admin_login FROM users WHERE is_admin = 1 ORDER BY id ASC LIMIT 1")
-    .get();
+  const admin = db.prepare("SELECT id, admin_login FROM users WHERE is_admin = 1 ORDER BY id ASC LIMIT 1").get();
   if (!admin) return;
 
   const login = process.env.ADMIN_LOGIN?.trim();
@@ -317,11 +301,6 @@ function migrateLegacyAdminAccount() {
   }
   const hash = bcrypt.hashSync(password, 12);
   const email = `admin-${login}@regola.invalid`;
-  db.prepare("UPDATE users SET admin_login = ?, password_hash = ?, email = ? WHERE id = ? AND is_admin = 1").run(
-    login,
-    hash,
-    email,
-    admin.id
-  );
+  db.prepare("UPDATE users SET admin_login = ?, password_hash = ?, email = ? WHERE id = ? AND is_admin = 1").run(login, hash, email, admin.id);
   console.warn("[Regola] Администратор обновлён из .env.");
 }

@@ -1,5 +1,5 @@
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Layout from "./components/Layout";
 import { useStore } from "./context/StoreContext";
 
@@ -13,44 +13,32 @@ function formatRub(value) {
   return Number(value || 0).toLocaleString("ru-RU");
 }
 
-function marketplaceRows(product) {
-  return [
-    { source: "Wildberries", price: product.wbPrice ?? product.wb_price, url: product.wbUrl ?? product.wb_url },
-    { source: "Ozon", price: product.ozonPrice ?? product.ozon_price, url: product.ozonUrl ?? product.ozon_url },
-    { source: "Яндекс Маркет", price: product.ymPrice ?? product.ym_price, url: product.ymUrl ?? product.ym_url },
-  ];
+function productImages(product) {
+  const images = Array.isArray(product.images) ? product.images : [];
+  return images.length ? images : [product.image].filter(Boolean);
 }
 
 function PriceBlock({ product, large = false }) {
-  const rows = marketplaceRows(product);
-  const hasMarketPrices = rows.some((item) => Number(item.price) > 0);
-
   return (
     <div className={"price-block" + (large ? " price-block--large" : "")}>
-      {hasMarketPrices ? (
-        <div className="market-price-list">
-          {rows.map((item) => {
-            const disabled = !Number(item.price);
-            const content = (
-              <>
-                <span>{item.source}</span>
-                <b>{disabled ? "—" : `${formatRub(item.price)} ₽`}</b>
-              </>
-            );
-            return item.url ? (
-              <a key={item.source} className={"market-price" + (disabled ? " market-price--empty" : "")} href={item.url} target="_blank" rel="noreferrer">
-                {content}
-              </a>
-            ) : (
-              <div key={item.source} className={"market-price" + (disabled ? " market-price--empty" : "")}>
-                {content}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="price-block__value"><b>{formatRub(product.price)} ₽</b></p>
-      )}
+      <p className="price-block__value"><span>от</span><b>{formatRub(product.price)} ₽</b></p>
+    </div>
+  );
+}
+
+function MarketplaceLinks({ product }) {
+  const links = [
+    ["Wildberries", product.wbUrl ?? product.wb_url],
+    ["Ozon", product.ozonUrl ?? product.ozon_url],
+    ["Яндекс Маркет", product.ymUrl ?? product.ym_url],
+  ].filter(([, url]) => url);
+
+  if (!links.length) return null;
+  return (
+    <div className="market-links">
+      {links.map(([label, url]) => (
+        <a key={label} href={url} target="_blank" rel="noreferrer">{label}</a>
+      ))}
     </div>
   );
 }
@@ -105,7 +93,7 @@ function HomePage() {
       <section id="order" className="info-section motion-in motion-in--delay-2" aria-labelledby="order-heading">
         <h2 id="order-heading">Как оформить заказ</h2>
         <div className="info-grid info-grid--triple">
-          <div className="info-card"><h3>1. Выберите ручку</h3><p>Откройте карточку товара в каталоге и сравните цены на маркетплейсах.</p></div>
+          <div className="info-card"><h3>1. Выберите ручку</h3><p>Откройте карточку товара в каталоге и сравните предложения на маркетплейсах.</p></div>
           <div className="info-card"><h3>2. Перейдите на площадку</h3><p>Нажмите Wildberries, Ozon или Яндекс Маркет в карточке товара.</p></div>
           <div className="info-card"><h3>3. Оформите покупку</h3><p>Завершите заказ на выбранном маркетплейсе или свяжитесь с нами по телефону.</p></div>
         </div>
@@ -141,9 +129,10 @@ function ProductGrid({ products }) {
     <div className="grid">
       {products.map((p) => (
         <article key={p.id} className="card">
-          <img src={p.image} alt={p.name} />
+          <img src={productImages(p)[0]} alt={p.name} />
           <h3>{p.name}</h3>
           <PriceBlock product={p} />
+          <MarketplaceLinks product={p} />
           <a className="btn-outline" href={"/product/" + p.id}>Подробнее</a>
         </article>
       ))}
@@ -155,20 +144,33 @@ function ProductPage() {
   const { id } = useParams();
   const { products } = useStore();
   const product = products.find((p) => p.id === Number(id));
+  const images = useMemo(() => productImages(product || {}), [product]);
+  const [activeImage, setActiveImage] = useState("");
+
+  useEffect(() => {
+    setActiveImage(images[0] || "");
+  }, [images]);
+
   if (!product) return <p>Товар не найден.</p>;
   return (
     <section className="product">
-      <img src={product.image} alt={product.name} />
+      <div className="product-gallery">
+        <img className="product-gallery__main" src={activeImage || images[0]} alt={product.name} />
+        {images.length > 1 && (
+          <div className="product-gallery__thumbs">
+            {images.map((src, index) => (
+              <button key={src + index} type="button" className={src === activeImage ? "is-active" : ""} onClick={() => setActiveImage(src)}>
+                <img src={src} alt={`${product.name} фото ${index + 1}`} />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <div>
         <h1>{product.name}</h1>
         <p>{product.description}</p>
         <PriceBlock product={product} large />
-        <p>Наличие: {product.stock} шт.</p>
-        <div className="market-links">
-          {(product.wbUrl || product.wb_url) && <a href={product.wbUrl || product.wb_url} target="_blank" rel="noreferrer">Wildberries</a>}
-          {(product.ozonUrl || product.ozon_url) && <a href={product.ozonUrl || product.ozon_url} target="_blank" rel="noreferrer">Ozon</a>}
-          {(product.ymUrl || product.ym_url) && <a href={product.ymUrl || product.ym_url} target="_blank" rel="noreferrer">Яндекс Маркет</a>}
-        </div>
+        <MarketplaceLinks product={product} />
       </div>
     </section>
   );
@@ -208,34 +210,45 @@ function productToAdminForm(p) {
     price: p.price,
     categoryId: p.categoryId ?? p.category_id ?? 1,
     description: p.description,
-    image: p.image,
-    stock: p.stock,
+    images: productImages(p),
+    imageUrl: "",
     ozonUrl: p.ozonUrl ?? p.ozon_url ?? "",
     wbUrl: p.wbUrl ?? p.wb_url ?? "",
     ymUrl: p.ymUrl ?? p.ym_url ?? "",
-    wbPrice: p.wbPrice ?? p.wb_price ?? "",
-    ozonPrice: p.ozonPrice ?? p.ozon_price ?? "",
-    ymPrice: p.ymPrice ?? p.ym_price ?? "",
   };
 }
 
-const EMPTY_ADMIN_FORM = { id: null, name: "", price: "", categoryId: 1, description: "", image: "", stock: 0, ozonUrl: "", wbUrl: "", ymUrl: "", wbPrice: "", ozonPrice: "", ymPrice: "" };
+const EMPTY_ADMIN_FORM = { id: null, name: "", price: "", categoryId: 1, description: "", images: [], imageUrl: "", ozonUrl: "", wbUrl: "", ymUrl: "" };
 
 function AdminPage() {
   const { user, isAdminSessionValid, products, categories, upsertProduct, deleteProduct, orders, updateOrderStatus } = useStore();
   const [form, setForm] = useState(EMPTY_ADMIN_FORM);
   if (!user?.isAdmin || !isAdminSessionValid) return <Navigate to={ADMIN_ENTRY_PRIMARY} replace />;
 
-  const uploadImage = (file) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      alert("Выберите файл изображения");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setForm((prev) => ({ ...prev, image: String(reader.result || "") }));
-    reader.onerror = () => alert("Не удалось загрузить изображение");
-    reader.readAsDataURL(file);
+  const addImages = (items) => {
+    setForm((prev) => ({ ...prev, images: [...new Set([...prev.images, ...items])].slice(0, 12) }));
+  };
+
+  const uploadImages = (files) => {
+    const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith("image/"));
+    if (!imageFiles.length) return;
+    Promise.all(imageFiles.map((file) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    }))).then(addImages).catch(() => alert("Не удалось загрузить изображения"));
+  };
+
+  const addImageUrl = () => {
+    const url = form.imageUrl.trim();
+    if (!url) return;
+    addImages([url]);
+    setForm((prev) => ({ ...prev, imageUrl: "" }));
+  };
+
+  const removeImage = (src) => {
+    setForm((prev) => ({ ...prev, images: prev.images.filter((item) => item !== src) }));
   };
 
   const submit = async (e) => {
@@ -244,11 +257,8 @@ function AdminPage() {
       await upsertProduct({
         ...form,
         price: Number(form.price) || 0,
-        stock: Number(form.stock) || 0,
         categoryId: Number(form.categoryId),
-        wbPrice: Number(form.wbPrice) || null,
-        ozonPrice: Number(form.ozonPrice) || null,
-        ymPrice: Number(form.ymPrice) || null,
+        image: form.images[0] || "",
       });
       setForm(EMPTY_ADMIN_FORM);
     } catch (error) {
@@ -257,54 +267,74 @@ function AdminPage() {
   };
 
   return (
-    <>
+    <section className="admin-page">
       <h1>Админ-панель</h1>
-      <h2>Управление товарами</h2>
-      <form className="form" onSubmit={submit}>
+      <h2>Товары</h2>
+      <form className="form admin-form" onSubmit={submit}>
         <input required placeholder="Название" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input type="number" min="0" placeholder="Основная цена, ₽" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
-        <input type="url" placeholder="Ссылка Wildberries" value={form.wbUrl} onChange={(e) => setForm({ ...form, wbUrl: e.target.value })} />
-        <input type="url" placeholder="Ссылка Ozon" value={form.ozonUrl} onChange={(e) => setForm({ ...form, ozonUrl: e.target.value })} />
-        <input type="url" placeholder="Ссылка Яндекс Маркета" value={form.ymUrl} onChange={(e) => setForm({ ...form, ymUrl: e.target.value })} />
-        <p className="form-hint">Цены указываются вручную. Если цена площадки не нужна — оставьте поле пустым.</p>
-        <input type="number" min="0" placeholder="Цена Wildberries, ₽" value={form.wbPrice} onChange={(e) => setForm({ ...form, wbPrice: e.target.value })} />
-        <input type="number" min="0" placeholder="Цена Ozon, ₽" value={form.ozonPrice} onChange={(e) => setForm({ ...form, ozonPrice: e.target.value })} />
-        <input type="number" min="0" placeholder="Цена Яндекс Маркета, ₽" value={form.ymPrice} onChange={(e) => setForm({ ...form, ymPrice: e.target.value })} />
+        <input required type="number" min="0" placeholder="Цена от, ₽" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
         <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <label className="image-upload">
-          <span>Изображение товара</span>
-          <input required placeholder="URL изображения" value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} />
-          <input type="file" accept="image/*" onChange={(e) => uploadImage(e.target.files?.[0])} />
-        </label>
-        {form.image && <img className="admin-image-preview" src={form.image} alt="Предпросмотр товара" />}
-        <input required type="number" min="0" placeholder="Остаток" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
         <textarea required placeholder="Описание" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+
+        <div className="admin-fieldset">
+          <b>Фото товара</b>
+          <p className="form-hint">Можно добавить несколько фото с устройства или по URL. Первое фото будет главным.</p>
+          <div className="admin-inline">
+            <input placeholder="URL изображения" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} />
+            <button type="button" onClick={addImageUrl}>Добавить URL</button>
+          </div>
+          <input type="file" accept="image/*" multiple onChange={(e) => uploadImages(e.target.files)} />
+          {form.images.length > 0 && (
+            <div className="admin-image-grid">
+              {form.images.map((src, index) => (
+                <div key={src} className="admin-image-tile">
+                  <img src={src} alt={`Фото ${index + 1}`} />
+                  <button type="button" onClick={() => removeImage(src)}>Удалить</button>
+                  {index === 0 && <span>Главное</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="admin-fieldset">
+          <b>Ссылки на маркетплейсы</b>
+          <input type="url" placeholder="Ссылка Wildberries" value={form.wbUrl} onChange={(e) => setForm({ ...form, wbUrl: e.target.value })} />
+          <input type="url" placeholder="Ссылка Ozon" value={form.ozonUrl} onChange={(e) => setForm({ ...form, ozonUrl: e.target.value })} />
+          <input type="url" placeholder="Ссылка Яндекс Маркета" value={form.ymUrl} onChange={(e) => setForm({ ...form, ymUrl: e.target.value })} />
+        </div>
+
         <button className="btn" type="submit">{form.id ? "Сохранить" : "Добавить товар"}</button>
       </form>
 
       <div className="admin-list">
         {products.map((p) => (
           <div key={p.id} className="admin-product-row">
+            <img src={productImages(p)[0]} alt="" />
             <span className="admin-product-row__name">{p.name}</span>
-            <span>{formatRub(p.price)} ₽</span>
+            <span>от {formatRub(p.price)} ₽</span>
             <button type="button" onClick={() => setForm(productToAdminForm(p))}>Редактировать</button>
             <button type="button" onClick={() => deleteProduct(p.id).catch((e) => alert(e.message))}>Удалить</button>
           </div>
         ))}
       </div>
 
-      <h2>Управление заказами</h2>
-      {orders.map((o) => (
-        <div key={o.id} className="order">
-          <b>#{o.id}</b> — {o.name} — {o.status}
-          <select value={o.status} onChange={(e) => updateOrderStatus(o.id, e.target.value).catch((err) => alert(err.message))}>
-            <option>обрабатывается</option>
-            <option>выполнен</option>
-            <option>отменен</option>
-          </select>
-        </div>
-      ))}
-    </>
+      {orders.length > 0 && (
+        <>
+          <h2>Заказы</h2>
+          {orders.map((o) => (
+            <div key={o.id} className="order">
+              <b>#{o.id}</b> — {o.name} — {o.status}
+              <select value={o.status} onChange={(e) => updateOrderStatus(o.id, e.target.value).catch((err) => alert(err.message))}>
+                <option>обрабатывается</option>
+                <option>выполнен</option>
+                <option>отменен</option>
+              </select>
+            </div>
+          ))}
+        </>
+      )}
+    </section>
   );
 }
 

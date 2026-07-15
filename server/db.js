@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS products (
   ozon_url TEXT,
   wb_url TEXT,
   ym_url TEXT,
+  images_json TEXT,
   wb_price INTEGER,
   ozon_price INTEGER,
   ym_price INTEGER
@@ -81,6 +82,7 @@ const productColumns = db.prepare("PRAGMA table_info(products)").all();
 const productColNames = new Set(productColumns.map((c) => c.name));
 for (const [column, type] of [
   ["ym_url", "TEXT"],
+  ["images_json", "TEXT"],
   ["wb_price", "INTEGER"],
   ["ozon_price", "INTEGER"],
   ["ym_price", "INTEGER"],
