@@ -38,13 +38,7 @@ function PriceBlock({ product, large = false }) {
               </>
             );
             return item.url ? (
-              <a
-                key={item.source}
-                className={"market-price" + (disabled ? " market-price--empty" : "")}
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <a key={item.source} className={"market-price" + (disabled ? " market-price--empty" : "")} href={item.url} target="_blank" rel="noreferrer">
                 {content}
               </a>
             ) : (
@@ -55,9 +49,7 @@ function PriceBlock({ product, large = false }) {
           })}
         </div>
       ) : (
-        <p className="price-block__value">
-          <b>{formatRub(product.price)} ₽</b>
-        </p>
+        <p className="price-block__value"><b>{formatRub(product.price)} ₽</b></p>
       )}
     </div>
   );
@@ -113,18 +105,9 @@ function HomePage() {
       <section id="order" className="info-section motion-in motion-in--delay-2" aria-labelledby="order-heading">
         <h2 id="order-heading">Как оформить заказ</h2>
         <div className="info-grid info-grid--triple">
-          <div className="info-card">
-            <h3>1. Выберите ручку</h3>
-            <p>Откройте карточку товара в каталоге и сравните цены на маркетплейсах.</p>
-          </div>
-          <div className="info-card">
-            <h3>2. Перейдите на площадку</h3>
-            <p>Нажмите Wildberries, Ozon или Яндекс Маркет в карточке товара.</p>
-          </div>
-          <div className="info-card">
-            <h3>3. Оформите покупку</h3>
-            <p>Завершите заказ на выбранном маркетплейсе или свяжитесь с нами по телефону.</p>
-          </div>
+          <div className="info-card"><h3>1. Выберите ручку</h3><p>Откройте карточку товара в каталоге и сравните цены на маркетплейсах.</p></div>
+          <div className="info-card"><h3>2. Перейдите на площадку</h3><p>Нажмите Wildberries, Ozon или Яндекс Маркет в карточке товара.</p></div>
+          <div className="info-card"><h3>3. Оформите покупку</h3><p>Завершите заказ на выбранном маркетплейсе или свяжитесь с нами по телефону.</p></div>
         </div>
       </section>
 
