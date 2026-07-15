@@ -5,7 +5,12 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database(path.join(__dirname, "regola.db"));
+const configuredDbPath = process.env.DB_PATH;
+const dbPath =
+  configuredDbPath && !(process.env.NODE_ENV !== "production" && configuredDbPath.startsWith("/app/"))
+    ? configuredDbPath
+    : path.join(__dirname, "regola.db");
+const db = new Database(dbPath);
 
 db.pragma("journal_mode = WAL");
 
@@ -36,7 +41,11 @@ CREATE TABLE IF NOT EXISTS products (
   views INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   ozon_url TEXT,
-  wb_url TEXT
+  wb_url TEXT,
+  ym_url TEXT,
+  wb_price INTEGER,
+  ozon_price INTEGER,
+  ym_price INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -65,24 +74,18 @@ CREATE TABLE IF NOT EXISTS order_items (
 const userColumns = db.prepare("PRAGMA table_info(users)").all();
 if (!userColumns.some((c) => c.name === "admin_login")) {
   db.exec("ALTER TABLE users ADD COLUMN admin_login TEXT");
-  db.exec(
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_admin_login ON users(admin_login) WHERE admin_login IS NOT NULL"
-  );
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_admin_login ON users(admin_login) WHERE admin_login IS NOT NULL");
 }
 
 const productColumns = db.prepare("PRAGMA table_info(products)").all();
 const productColNames = new Set(productColumns.map((c) => c.name));
-if (!productColNames.has("wb_nm_id")) {
-  db.exec("ALTER TABLE products ADD COLUMN wb_nm_id INTEGER");
-}
-if (!productColNames.has("wb_synced_at")) {
-  db.exec("ALTER TABLE products ADD COLUMN wb_synced_at TEXT");
-}
-if (!productColNames.has("wb_sync_error")) {
-  db.exec("ALTER TABLE products ADD COLUMN wb_sync_error TEXT");
-}
-if (!productColNames.has("price_previous")) {
-  db.exec("ALTER TABLE products ADD COLUMN price_previous INTEGER");
+for (const [column, type] of [
+  ["ym_url", "TEXT"],
+  ["wb_price", "INTEGER"],
+  ["ozon_price", "INTEGER"],
+  ["ym_price", "INTEGER"],
+]) {
+  if (!productColNames.has(column)) db.exec(`ALTER TABLE products ADD COLUMN ${column} ${type}`);
 }
 
 export default db;

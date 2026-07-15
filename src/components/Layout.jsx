@@ -1,18 +1,37 @@
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useStore } from "../context/StoreContext";
 import BottomContacts from "./BottomContacts";
 
+const SECTION_LINKS = [
+  ["catalog", "Каталог"],
+  ["home", "Главная"],
+  ["order", "Как оформить заказ"],
+  ["about", "О компании"],
+  ["guarantees", "Гарантии"],
+  ["contacts", "Контакты"],
+];
+
 export default function Layout({ children }) {
-  const { user, cartDetailed, logout } = useStore();
+  const { user, logout } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const cartCount = cartDetailed.reduce((sum, row) => sum + row.qty, 0);
 
   useEffect(() => {
     setMenuOpen(false);
   }, [location.pathname, location.hash]);
+
+  const scrollToSection = (id) => (e) => {
+    e.preventDefault();
+    if (location.pathname !== "/") {
+      navigate("/#" + id);
+      return;
+    }
+    window.history.replaceState(null, "", "/#" + id);
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setMenuOpen(false);
+  };
 
   const onLogout = () => {
     logout();
@@ -23,16 +42,15 @@ export default function Layout({ children }) {
     <div className="page-shell">
       <header className="header">
         <div className="container nav">
-          <div className="nav-row">
-            <div className="nav-left">
-              <Link to="/" className="nav-tagline">
-                Магазин дверных ручек
-              </Link>
-            </div>
-            <div className="nav-center">
-              <Link to="/" className="logo" aria-label="Regola — на главную">
-                <img src="/regola.jpg" alt="Regola" className="logo-img" width="220" height="40" />
-              </Link>
+          <div className="nav-top">
+            <Link to="/" className="nav-tagline">Магазин дверных ручек</Link>
+            <Link to="/" className="logo" aria-label="Regola — на главную">
+              <img src="/regola.jpg" alt="Regola" className="logo-img" width="300" height="84" />
+            </Link>
+            <div className="nav-marketplaces">
+              <a className="market-icon market-icon--wb" href="https://www.wildberries.ru/seller/782141" target="_blank" rel="noreferrer" aria-label="Wildberries"><span>WB</span></a>
+              <a className="market-icon market-icon--ozon" href="https://www.ozon.ru/seller/torretta/" target="_blank" rel="noreferrer" aria-label="Ozon"><span>OZON</span></a>
+              <a className="market-icon market-icon--ym" href="https://market.yandex.ru/business--regola/203997184?generalContext=t%3DshopInShop%3Bi%3D1%3Bbi%3D203997184%3B&rs=eJwz4v_EyMPBKLDwEKsEg8az06wAJY8EuA%2C%2C&searchContext=sins_ctx" target="_blank" rel="noreferrer" aria-label="Яндекс Маркет"><span>Я</span><span>Маркет</span></a>
             </div>
             <button
               type="button"
@@ -43,29 +61,16 @@ export default function Layout({ children }) {
             >
               {menuOpen ? "Закрыть" : "Меню"}
             </button>
-            <nav
-              id="main-nav"
-              className={`nav-right${menuOpen ? " nav-right--open" : ""}`}
-              aria-label="Основное меню"
-            >
-              <NavLink to="/cart">Корзина ({cartCount})</NavLink>
-              <a className="market-icon wb" href="https://www.wildberries.ru/" target="_blank" rel="noreferrer" aria-label="Wildberries">
-                WB
-              </a>
-              <a className="market-icon ozon" href="https://www.ozon.ru/" target="_blank" rel="noreferrer" aria-label="Ozon">
-                OZ
-              </a>
-              <a className="market-icon ym" href="https://market.yandex.ru/" target="_blank" rel="noreferrer" aria-label="Yandex Market">
-                YM
-              </a>
-              {user ? (
-                <>
-                  <NavLink to="/account">Кабинет</NavLink>
-                  <button className="link-btn" onClick={onLogout}>Выйти</button>
-                </>
-              ) : null}
-            </nav>
           </div>
+          <nav
+            id="main-nav"
+            className={"nav-menu" + (menuOpen ? " nav-menu--open" : "")}
+            aria-label="Основное меню">
+            {SECTION_LINKS.map(([id, label]) => (
+              <a key={id} href={"/#" + id} onClick={scrollToSection(id)}>{label}</a>
+            ))}
+            {user ? <button className="link-btn" onClick={onLogout}>Выйти</button> : null}
+          </nav>
         </div>
       </header>
       <main key={location.pathname} className="container page-main page-route-enter">

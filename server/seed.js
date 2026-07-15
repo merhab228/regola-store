@@ -18,19 +18,11 @@ export function seedIfNeeded() {
     const gen = generateAdminCredentials();
     adminLogin = gen.login;
     adminPassword = gen.password;
-    // eslint-disable-next-line no-console
-    console.warn(
-      "\n╔════════════════════════════════════════════════════════════════╗\n" +
-        "║  Regola: первый запуск — сохраните учётные данные администратора  ║\n" +
-        "╠════════════════════════════════════════════════════════════════╣\n" +
-        `║  Логин:    ${adminLogin.padEnd(52)}║\n` +
-        `║  Пароль:   ${adminPassword.padEnd(52)}║\n` +
-        "╚════════════════════════════════════════════════════════════════╝\n"
-    );
+    console.warn(`[Regola] Первый запуск. Логин: ${adminLogin} Пароль: ${adminPassword}`);
   }
 
   if (!/^[a-zA-Z0-9_-]{3,128}$/.test(adminLogin)) {
-    throw new Error("ADMIN_LOGIN must be 3–128 chars: letters, digits, _ and -");
+    throw new Error("ADMIN_LOGIN must be 3-128 chars: letters, digits, _ and -");
   }
   if (adminPassword.length < 12) {
     throw new Error("ADMIN_PASSWORD must be at least 12 characters");
@@ -38,25 +30,17 @@ export function seedIfNeeded() {
 
   const adminHash = bcrypt.hashSync(adminPassword, 12);
   const adminEmail = `admin-${adminLogin}@regola.invalid`;
-
-  const userHash = bcrypt.hashSync("user123", 10);
-
   db.prepare(
     `INSERT INTO users (name, email, phone, address, password_hash, is_admin, admin_login)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run("Admin Regola", adminEmail, "+79990000000", "Москва, ул. Примерная, 1", adminHash, 1, adminLogin);
+  ).run("Admin Regola", adminEmail, "+79829412000", "Санкт-Петербург, проспект Героев, 26", adminHash, 1, adminLogin);
 
-  db.prepare(
-    `INSERT INTO users (name, email, phone, address, password_hash, is_admin, admin_login)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run("Иван Покупатель", "ivan@regola.local", "+79991112233", "Санкт-Петербург, Невский пр., 10", userHash, 0, null);
-
-  db.prepare("INSERT INTO categories (name) VALUES (?), (?)").run("Дверные ручки", "Подставки для наушников");
+  db.prepare("INSERT INTO categories (name) VALUES (?)").run("Дверные ручки");
 
   const insertProduct = db.prepare(`
     INSERT INTO products
-      (name, price, category_id, description, image, stock, views, created_at, ozon_url, wb_url)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (name, price, category_id, description, image, stock, views, created_at, ozon_url, wb_url, ym_url, wb_price, ozon_price, ym_price)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const now = new Date().toISOString();
@@ -69,32 +53,27 @@ export function seedIfNeeded() {
     18,
     45,
     now,
-    "https://www.ozon.ru/",
-    "https://www.wildberries.ru/"
+    "https://www.ozon.ru/seller/torretta/",
+    "https://www.wildberries.ru/seller/782141",
+    "https://market.yandex.ru/business--regola/203997184",
+    1850,
+    1890,
+    1920
   );
   insertProduct.run(
     "Regola Matte Black",
     2190,
     1,
-    "Матовая черная ручка в современном минималистичном дизайне.",
+    "Матовая чёрная ручка в современном минималистичном дизайне.",
     "https://images.unsplash.com/photo-1615873968403-89e068629265?auto=format&fit=crop&w=600&q=80",
     12,
     62,
     now,
-    "https://www.ozon.ru/",
-    "https://www.wildberries.ru/"
-  );
-  insertProduct.run(
-    "Regola Stand One",
-    1490,
-    2,
-    "Металлическая подставка для наушников с мягким основанием.",
-    "https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=600&q=80",
-    60,
-    20,
-    36,
-    now,
-    "https://www.ozon.ru/",
-    "https://www.wildberries.ru/"
+    "https://www.ozon.ru/seller/torretta/",
+    "https://www.wildberries.ru/seller/782141",
+    "https://market.yandex.ru/business--regola/203997184",
+    2190,
+    2250,
+    2290
   );
 }

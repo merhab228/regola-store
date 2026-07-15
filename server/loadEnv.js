@@ -25,7 +25,7 @@ function applyEnvFile(filePath) {
     } else {
       val = val.trim();
     }
-    if (!key) continue;
+    if (!key || process.env[key] !== undefined) continue;
     process.env[key] = val;
   }
 }
