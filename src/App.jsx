@@ -220,10 +220,47 @@ function productToAdminForm(p) {
 
 const EMPTY_ADMIN_FORM = { id: null, name: "", price: "", categoryId: 1, description: "", images: [], imageUrl: "", ozonUrl: "", wbUrl: "", ymUrl: "" };
 
+function fileToOptimizedDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const maxSide = 1600;
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.86));
+      };
+      img.src = String(reader.result || "");
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function AdminPage() {
   const { user, isAdminSessionValid, products, categories, upsertProduct, deleteProduct, orders, updateOrderStatus } = useStore();
   const [form, setForm] = useState(EMPTY_ADMIN_FORM);
+  const [adminQuery, setAdminQuery] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [statusText, setStatusText] = useState("");
   if (!user?.isAdmin || !isAdminSessionValid) return <Navigate to={ADMIN_ENTRY_PRIMARY} replace />;
+
+  const filteredProducts = products.filter((p) => {
+    const q = adminQuery.trim().toLowerCase();
+    if (!q) return true;
+    return [p.name, p.description].some((value) => String(value || "").toLowerCase().includes(q));
+  });
+
+  const resetForm = () => {
+    setForm(EMPTY_ADMIN_FORM);
+    setStatusText("");
+  };
 
   const addImages = (items) => {
     setForm((prev) => ({ ...prev, images: [...new Set([...prev.images, ...items])].slice(0, 12) }));
@@ -232,12 +269,7 @@ function AdminPage() {
   const uploadImages = (files) => {
     const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith("image/"));
     if (!imageFiles.length) return;
-    Promise.all(imageFiles.map((file) => new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    }))).then(addImages).catch(() => alert("Не удалось загрузить изображения"));
+    Promise.all(imageFiles.map(fileToOptimizedDataUrl)).then(addImages).catch(() => alert("Не удалось загрузить изображения"));
   };
 
   const addImageUrl = () => {
@@ -251,8 +283,44 @@ function AdminPage() {
     setForm((prev) => ({ ...prev, images: prev.images.filter((item) => item !== src) }));
   };
 
+  const moveImage = (index, direction) => {
+    setForm((prev) => {
+      const next = [...prev.images];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return { ...prev, images: next };
+    });
+  };
+
+  const makeMainImage = (src) => {
+    setForm((prev) => ({ ...prev, images: [src, ...prev.images.filter((item) => item !== src)] }));
+  };
+
+  const editProduct = (product) => {
+    setForm(productToAdminForm(product));
+    setStatusText("Режим редактирования: внесите изменения и нажмите «Сохранить».");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const removeProduct = async (product) => {
+    if (!window.confirm(`Удалить товар «${product.name}»?`)) return;
+    try {
+      await deleteProduct(product.id);
+      setStatusText("Товар удалён.");
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
   const submit = async (e) => {
     e.preventDefault();
+    if (!form.images.length) {
+      alert("Добавьте хотя бы одно фото товара");
+      return;
+    }
+    setIsSaving(true);
+    setStatusText("");
     try {
       await upsertProduct({
         ...form,
@@ -260,16 +328,38 @@ function AdminPage() {
         categoryId: Number(form.categoryId),
         image: form.images[0] || "",
       });
+      setStatusText(form.id ? "Товар сохранён." : "Товар добавлен.");
       setForm(EMPTY_ADMIN_FORM);
     } catch (error) {
       alert(error.message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
     <section className="admin-page">
-      <h1>Админ-панель</h1>
-      <h2>Товары</h2>
+      <div className="admin-hero">
+        <div>
+          <h1>Админ-панель</h1>
+          <p>Быстрое управление каталогом Regola: товары, фото, цены и ссылки на маркетплейсы.</p>
+        </div>
+        <div className="admin-stats">
+          <span><b>{products.length}</b> товаров</span>
+          <span><b>{products.filter((p) => productImages(p).length > 1).length}</b> с галереей</span>
+          <span><b>{products.filter((p) => (p.wbUrl || p.ozonUrl || p.ymUrl || p.wb_url || p.ozon_url || p.ym_url)).length}</b> со ссылками</span>
+        </div>
+      </div>
+
+      <div className="admin-toolbar">
+        <input type="search" placeholder="Быстрый поиск по товарам" value={adminQuery} onChange={(e) => setAdminQuery(e.target.value)} />
+        <button type="button" onClick={resetForm}>Новый товар</button>
+        <a className="btn-outline" href="/" target="_blank" rel="noreferrer">Открыть сайт</a>
+      </div>
+
+      {statusText && <p className="admin-status">{statusText}</p>}
+
+      <h2>{form.id ? "Редактирование товара" : "Новый товар"}</h2>
       <form className="form admin-form" onSubmit={submit}>
         <input required placeholder="Название" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <input required type="number" min="0" placeholder="Цена от, ₽" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
@@ -289,7 +379,12 @@ function AdminPage() {
               {form.images.map((src, index) => (
                 <div key={src} className="admin-image-tile">
                   <img src={src} alt={`Фото ${index + 1}`} />
-                  <button type="button" onClick={() => removeImage(src)}>Удалить</button>
+                  <div className="admin-image-tile__actions">
+                    <button type="button" onClick={() => moveImage(index, -1)} disabled={index === 0}>←</button>
+                    <button type="button" onClick={() => makeMainImage(src)} disabled={index === 0}>Главное</button>
+                    <button type="button" onClick={() => moveImage(index, 1)} disabled={index === form.images.length - 1}>→</button>
+                    <button type="button" onClick={() => removeImage(src)}>Удалить</button>
+                  </div>
                   {index === 0 && <span>Главное</span>}
                 </div>
               ))}
@@ -304,17 +399,23 @@ function AdminPage() {
           <input type="url" placeholder="Ссылка Яндекс Маркета" value={form.ymUrl} onChange={(e) => setForm({ ...form, ymUrl: e.target.value })} />
         </div>
 
-        <button className="btn" type="submit">{form.id ? "Сохранить" : "Добавить товар"}</button>
+        <div className="admin-actions">
+          <button className="btn" type="submit" disabled={isSaving}>{isSaving ? "Сохраняю..." : (form.id ? "Сохранить" : "Добавить товар")}</button>
+          {form.id && <button type="button" onClick={resetForm}>Отменить редактирование</button>}
+        </div>
       </form>
 
+      <h2>Каталог ({filteredProducts.length})</h2>
       <div className="admin-list">
-        {products.map((p) => (
+        {filteredProducts.map((p) => (
           <div key={p.id} className="admin-product-row">
             <img src={productImages(p)[0]} alt="" />
             <span className="admin-product-row__name">{p.name}</span>
             <span>от {formatRub(p.price)} ₽</span>
-            <button type="button" onClick={() => setForm(productToAdminForm(p))}>Редактировать</button>
-            <button type="button" onClick={() => deleteProduct(p.id).catch((e) => alert(e.message))}>Удалить</button>
+            <span>{productImages(p).length} фото</span>
+            <MarketplaceLinks product={p} />
+            <button type="button" onClick={() => editProduct(p)}>Редактировать</button>
+            <button type="button" onClick={() => removeProduct(p)}>Удалить</button>
           </div>
         ))}
       </div>
