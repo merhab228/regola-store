@@ -249,19 +249,48 @@ function QuestionSection() {
 }
 
 function CartPage() {
-  const { cartItems, updateCartQty, removeFromCart, cartTotal, clearCart, sendCheckout } = useStore();
-  const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", comment: "" });
+  const { cartItems, updateCartQty, removeFromCart, cartTotal, clearCart, sendCheckout, estimateCdekDelivery } = useStore();
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    city: "",
+    address: "",
+    deliveryMethod: "СДЭК до ПВЗ",
+    paymentMethod: "invoice",
+    comment: "",
+  });
+  const [deliveryEstimate, setDeliveryEstimate] = useState(null);
   const [status, setStatus] = useState("");
+  const orderTotal = cartTotal + Number(deliveryEstimate?.deliveryPrice || 0);
+
+  const estimateDelivery = async () => {
+    setStatus("");
+    try {
+      const estimate = await estimateCdekDelivery({ city: form.city || form.address, items: cartItems, goodsTotal: cartTotal });
+      setDeliveryEstimate(estimate);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     if (!cartItems.length) return;
     setStatus("");
     try {
-      await sendCheckout({ ...form, delivery: "СДЭК / Почта России", payment: "Счёт на оплату", items: cartItems, total: cartTotal });
+      await sendCheckout({
+        ...form,
+        deliveryPrice: Number(deliveryEstimate?.deliveryPrice || 0),
+        deliveryEstimate,
+        items: cartItems,
+        goodsTotal: cartTotal,
+        total: orderTotal,
+      });
       clearCart();
-      setForm({ name: "", phone: "", email: "", address: "", comment: "" });
-      setStatus("Заявка отправлена. Мы свяжемся с вами для подтверждения оплаты и доставки.");
+      setForm({ name: "", phone: "", email: "", city: "", address: "", deliveryMethod: "СДЭК до ПВЗ", paymentMethod: "invoice", comment: "" });
+      setDeliveryEstimate(null);
+      setStatus("Заказ отправлен. Мы подтвердим доставку СДЭК и способ оплаты.");
     } catch (error) {
       setStatus(error.message);
     }
@@ -288,14 +317,38 @@ function CartPage() {
               </div>
             ))}
           </div>
-          <div className="cart-total">Итого: <b>{formatRub(cartTotal)} ₽</b></div>
+          <div className="cart-total">
+            Товары: <b>{formatRub(cartTotal)} ₽</b>
+            {deliveryEstimate && <span>Доставка: <b>{formatRub(deliveryEstimate.deliveryPrice)} ₽</b></span>}
+            <span>Итого: <b>{formatRub(orderTotal)} ₽</b></span>
+          </div>
           <form className="form checkout-form" onSubmit={submit}>
             <h2>Оформление заказа</h2>
-            <p>После отправки заявки мы подтвердим наличие, способ доставки и отправим счёт с реквизитами. Доставка оплачивается отдельно.</p>
+            <p>Сейчас заказ отправляется как заявка. Онлайн-оплата включится после получения договора и ключей эквайринга. Доставка СДЭК считается предварительно и подтверждается менеджером.</p>
             <input required placeholder="Ваше имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <input required placeholder="Телефон" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            <input placeholder="Город / адрес доставки" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            <div className="checkout-grid">
+              <input required placeholder="Город доставки" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+              <select value={form.deliveryMethod} onChange={(e) => setForm({ ...form, deliveryMethod: e.target.value })}>
+                <option>СДЭК до ПВЗ</option>
+                <option>СДЭК курьером</option>
+                <option>Почта России</option>
+              </select>
+            </div>
+            <input placeholder="Адрес или желаемый ПВЗ" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
+              <option value="invoice">Счёт на оплату</option>
+              <option value="online">Онлайн-оплата после подключения</option>
+              <option value="cod">Оплата при получении / по согласованию</option>
+            </select>
+            <button type="button" onClick={estimateDelivery}>Рассчитать СДЭК</button>
+            {deliveryEstimate && (
+              <p className="delivery-estimate">
+                {deliveryEstimate.tariff}: {formatRub(deliveryEstimate.deliveryPrice)} ₽, {deliveryEstimate.minDays}–{deliveryEstimate.maxDays} дн.
+                <br />{deliveryEstimate.notice}
+              </p>
+            )}
             <textarea placeholder="Комментарий к заказу" value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} />
             <button className="btn" type="submit">Отправить заказ</button>
             {status && <p className="form-hint">{status}</p>}

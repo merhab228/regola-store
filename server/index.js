@@ -86,6 +86,18 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
+app.post("/api/cdek/estimate", async (req, res) => {
+  const body = req.body || {};
+  const city = String(body.city || body.address || "").trim();
+  const items = Array.isArray(body.items) ? body.items : [];
+  const qty = items.reduce((sum, item) => sum + Math.max(1, Number(item.qty) || 1), 0);
+  const goodsTotal = Math.max(0, Number(body.goodsTotal) || items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0));
+  if (!city) return res.status(400).json({ message: "Укажите город доставки" });
+
+  const estimate = estimateCdekFallback({ city, qty, goodsTotal });
+  res.json(estimate);
+});
+
 app.post("/api/checkout", async (req, res) => {
   try {
     const body = req.body || {};
@@ -97,7 +109,9 @@ app.post("/api/checkout", async (req, res) => {
     if (!name || !phone) return res.status(400).json({ message: "Укажите имя и телефон" });
 
     const createdAt = new Date().toISOString();
-    const total = Math.max(0, Number(body.total) || items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0));
+    const goodsTotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
+    const deliveryPrice = Math.max(0, Number(body.deliveryPrice) || 0);
+    const total = Math.max(0, Number(body.total) || goodsTotal + deliveryPrice);
     const result = db.prepare(`
       INSERT INTO orders (user_id, status, name, phone, address, delivery, payment, total, created_at)
       VALUES (0, 'обрабатывается', ?, ?, ?, ?, ?, ?, ?)
@@ -105,8 +119,8 @@ app.post("/api/checkout", async (req, res) => {
       name,
       phone,
       String(body.address || "").trim(),
-      String(body.delivery || "СДЭК / Почта России").trim(),
-      String(body.payment || "Счёт на оплату").trim(),
+      buildDeliveryLabel(body),
+      buildPaymentLabel(body),
       total,
       createdAt
     );
@@ -122,6 +136,10 @@ app.post("/api/checkout", async (req, res) => {
       email: body.email,
       message: body.comment || `Заказ #${orderId} на сумму ${total} ₽`,
       items,
+      delivery: buildDeliveryLabel(body),
+      deliveryPrice,
+      payment: buildPaymentLabel(body),
+      goodsTotal,
       total,
       orderId,
     });
@@ -289,6 +307,39 @@ function normalizePrice(value) {
 
 function normalizeUrl(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function estimateCdekFallback({ city, qty, goodsTotal }) {
+  const normalizedCity = city.toLowerCase();
+  const isSpb = /санкт|петербург|спб|sankt|spb/.test(normalizedCity);
+  const isMoscow = /москв|moscow/.test(normalizedCity);
+  const base = isSpb ? 250 : isMoscow ? 320 : 420;
+  const deliveryPrice = goodsTotal >= 15000 ? 0 : base + Math.max(0, qty - 1) * 60;
+  return {
+    provider: "CDEK",
+    mode: process.env.CDEK_CLIENT_ID && process.env.CDEK_CLIENT_SECRET ? "api_ready" : "manual_estimate",
+    city,
+    deliveryPrice,
+    minDays: isSpb ? 1 : isMoscow ? 2 : 3,
+    maxDays: isSpb ? 2 : isMoscow ? 4 : 7,
+    tariff: "СДЭК, предварительный расчёт",
+    notice: "Точная стоимость доставки подтверждается менеджером после оформления заказа.",
+  };
+}
+
+function buildDeliveryLabel(body = {}) {
+  const method = String(body.deliveryMethod || body.delivery || "СДЭК").trim();
+  const city = String(body.city || "").trim();
+  const price = Math.max(0, Number(body.deliveryPrice) || 0);
+  return `${method}${city ? `, ${city}` : ""}${price ? `, доставка ${price} ₽` : ""}`;
+}
+
+function buildPaymentLabel(body = {}) {
+  const method = String(body.paymentMethod || body.payment || "Счёт на оплату").trim();
+  if (method === "online") return "Онлайн-оплата после подключения эквайринга";
+  if (method === "invoice") return "Счёт на оплату";
+  if (method === "cod") return "Оплата при получении / по согласованию";
+  return method;
 }
 
 function constantTimeSecretEqual(a, b) {

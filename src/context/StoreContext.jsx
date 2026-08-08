@@ -159,6 +159,11 @@ export function StoreProvider({ children }) {
     body: JSON.stringify(payload),
   });
 
+  const estimateCdekDelivery = async (payload) => api("/api/cdek/estimate", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
   return (
     <StoreContext.Provider
       value={{
@@ -174,6 +179,7 @@ export function StoreProvider({ children }) {
         removeFromCart,
         clearCart,
         sendCheckout,
+        estimateCdekDelivery,
         upsertProduct,
         deleteProduct,
         updateOrderStatus,

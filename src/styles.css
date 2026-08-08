@@ -1720,6 +1720,24 @@ textarea:focus {
 .cart-total {
   justify-self: end;
   font-size: 24px;
+  display: grid;
+  gap: 6px;
+  text-align: right;
+}
+
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+}
+
+.delivery-estimate {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(26, 122, 58, 0.25);
+  border-radius: 12px;
+  background: rgba(26, 122, 58, 0.08);
+  color: #145c2c;
 }
 
 .floating-question {
@@ -1769,6 +1787,10 @@ textarea:focus {
     left: 14px;
     right: 14px;
     text-align: center;
+  }
+
+  .checkout-grid {
+    grid-template-columns: 1fr;
   }
 }
 
