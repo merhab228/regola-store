@@ -15,6 +15,7 @@ export function mapProduct(row) {
   const wbUrl = row.wb_url || "";
   const ozonUrl = row.ozon_url || "";
   const ymUrl = row.ym_url || "";
+  const videoUrl = row.video_url || "";
   const images = parseImages(row);
   return {
     id: row.id,
@@ -33,6 +34,8 @@ export function mapProduct(row) {
     ozon_url: ozonUrl,
     ymUrl,
     ym_url: ymUrl,
+    videoUrl,
+    video_url: videoUrl,
     wbUrl,
     wb_url: wbUrl,
   };

@@ -5,18 +5,20 @@ import BottomContacts from "./BottomContacts";
 
 const SECTION_LINKS = [
   ["catalog", "Каталог"],
-  ["home", "Главная"],
-  ["order", "Как оформить заказ"],
-  ["about", "О компании"],
+  ["payment", "Оплата и доставка"],
+  ["about", "Цель компании"],
+  ["order", "Заказ через маркетплейсы"],
   ["guarantees", "Гарантии"],
+  ["question", "Задать вопрос"],
   ["contacts", "Контакты"],
 ];
 
 export default function Layout({ children }) {
-  const { user, logout } = useStore();
+  const { user, logout, cartItems } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const cartCount = cartItems.reduce((sum, item) => sum + Number(item.qty || 0), 0);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -43,7 +45,7 @@ export default function Layout({ children }) {
       <header className="header">
         <div className="container nav">
           <div className="nav-top">
-            <Link to="/" className="nav-tagline">Магазин дверных ручек</Link>
+            <Link to="/" className="nav-tagline">МАГАЗИН ДВЕРНЫХ РУЧЕК</Link>
             <Link to="/" className="logo" aria-label="Regola — на главную">
               <img src="/regola.jpg" alt="Regola" className="logo-img" width="300" height="84" />
             </Link>
@@ -65,10 +67,12 @@ export default function Layout({ children }) {
           <nav
             id="main-nav"
             className={"nav-menu" + (menuOpen ? " nav-menu--open" : "")}
-            aria-label="Основное меню">
+            aria-label="Основное меню"
+          >
             {SECTION_LINKS.map(([id, label]) => (
               <a key={id} href={"/#" + id} onClick={scrollToSection(id)}>{label}</a>
             ))}
+            <Link to="/cart">Корзина{cartCount ? ` (${cartCount})` : ""}</Link>
             {user ? <button className="link-btn" onClick={onLogout}>Выйти</button> : null}
           </nav>
         </div>
@@ -76,6 +80,7 @@ export default function Layout({ children }) {
       <main key={location.pathname} className="container page-main page-route-enter">
         {children}
       </main>
+      <a className="floating-question" href="/#question" onClick={scrollToSection("question")}>Задать вопрос</a>
       <BottomContacts />
     </div>
   );

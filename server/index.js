@@ -76,6 +76,63 @@ app.get("/api/products/:id", (req, res) => {
   res.json(mapProduct(row));
 });
 
+app.post("/api/contact", async (req, res) => {
+  try {
+    const message = saveSiteMessage("question", req.body);
+    await notifyTelegram("Новый вопрос с сайта", message);
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    res.status(400).json({ message: error.message || "Request failed" });
+  }
+});
+
+app.post("/api/checkout", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const items = Array.isArray(body.items) ? body.items : [];
+    if (!items.length) return res.status(400).json({ message: "Корзина пустая" });
+
+    const name = String(body.name || "").trim();
+    const phone = String(body.phone || "").trim();
+    if (!name || !phone) return res.status(400).json({ message: "Укажите имя и телефон" });
+
+    const createdAt = new Date().toISOString();
+    const total = Math.max(0, Number(body.total) || items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0));
+    const result = db.prepare(`
+      INSERT INTO orders (user_id, status, name, phone, address, delivery, payment, total, created_at)
+      VALUES (0, 'обрабатывается', ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      name,
+      phone,
+      String(body.address || "").trim(),
+      String(body.delivery || "СДЭК / Почта России").trim(),
+      String(body.payment || "Счёт на оплату").trim(),
+      total,
+      createdAt
+    );
+    const orderId = Number(result.lastInsertRowid);
+    const insertItem = db.prepare("INSERT INTO order_items (order_id, product_id, name, qty, price) VALUES (?, ?, ?, ?, ?)");
+    for (const item of items.slice(0, 50)) {
+      insertItem.run(orderId, Number(item.id) || 0, String(item.name || "Товар").slice(0, 300), Math.max(1, Number(item.qty) || 1), Math.max(0, Number(item.price) || 0));
+    }
+
+    const message = saveSiteMessage("order", {
+      name,
+      phone,
+      email: body.email,
+      message: body.comment || `Заказ #${orderId} на сумму ${total} ₽`,
+      items,
+      total,
+      orderId,
+    });
+    await notifyTelegram(`Новый заказ #${orderId}`, message);
+    const row = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
+    res.status(201).json(withItems(row));
+  } catch (error) {
+    res.status(400).json({ message: error.message || "Request failed" });
+  }
+});
+
 app.get("/api/me", authRequired, (req, res) => {
   const user = db.prepare("SELECT id, name, email, phone, address, is_admin FROM users WHERE id = ?").get(req.user.id);
   if (!user) return res.status(404).json({ message: "User not found" });
@@ -141,8 +198,8 @@ app.post("/api/admin/products", authRequired, adminRequired, (req, res) => {
   if (!product.image) return res.status(400).json({ message: "Добавьте хотя бы одно фото товара" });
 
   const result = db.prepare(`
-    INSERT INTO products (name, price, category_id, description, image, images_json, stock, views, created_at, ozon_url, wb_url, ym_url)
-    VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?)
+    INSERT INTO products (name, price, category_id, description, image, images_json, stock, views, created_at, ozon_url, wb_url, ym_url, video_url)
+    VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?)
   `).run(
     product.name,
     product.price,
@@ -153,7 +210,8 @@ app.post("/api/admin/products", authRequired, adminRequired, (req, res) => {
     new Date().toISOString(),
     product.ozonUrl,
     product.wbUrl,
-    product.ymUrl
+    product.ymUrl,
+    product.videoUrl
   );
   const row = db.prepare("SELECT * FROM products WHERE id = ?").get(Number(result.lastInsertRowid));
   res.status(201).json(mapProduct(row));
@@ -167,7 +225,7 @@ app.put("/api/admin/products/:id", authRequired, adminRequired, (req, res) => {
   db.prepare(`
     UPDATE products
     SET name = ?, price = ?, category_id = ?, description = ?, image = ?, images_json = ?, stock = 0,
-        ozon_url = ?, wb_url = ?, ym_url = ?
+        ozon_url = ?, wb_url = ?, ym_url = ?, video_url = ?
     WHERE id = ?
   `).run(
     product.name,
@@ -179,6 +237,7 @@ app.put("/api/admin/products/:id", authRequired, adminRequired, (req, res) => {
     product.ozonUrl,
     product.wbUrl,
     product.ymUrl,
+    product.videoUrl,
     Number(req.params.id)
   );
   const row = db.prepare("SELECT * FROM products WHERE id = ?").get(Number(req.params.id));
@@ -212,6 +271,7 @@ function normalizeProductPayload(body) {
     wbUrl: normalizeUrl(body.wbUrl),
     ozonUrl: normalizeUrl(body.ozonUrl),
     ymUrl: normalizeUrl(body.ymUrl),
+    videoUrl: normalizeUrl(body.videoUrl),
   };
 }
 
@@ -246,6 +306,51 @@ function adminClientIp(req) {
 function adminBumpAttempt(ip, attempt) {
   attempt.count += 1;
   adminLoginAttempts.set(ip, attempt);
+}
+
+function saveSiteMessage(type, body = {}) {
+  const name = String(body.name || "").trim();
+  const phone = String(body.phone || "").trim();
+  const email = String(body.email || "").trim();
+  const message = String(body.message || "").trim();
+  if (!name) throw new Error("Укажите имя");
+  if (!message && type !== "order") throw new Error("Напишите сообщение");
+  const payloadJson = JSON.stringify(body);
+  const createdAt = new Date().toISOString();
+  const result = db.prepare(`
+    INSERT INTO site_messages (type, name, phone, email, message, payload_json, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(type, name, phone, email, message || "Заказ с сайта", payloadJson, createdAt);
+  return { id: Number(result.lastInsertRowid), type, name, phone, email, message: message || "Заказ с сайта", payload: body, createdAt };
+}
+
+async function notifyTelegram(title, data) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId || typeof fetch !== "function") return;
+  const lines = [
+    title,
+    `Имя: ${data.name}`,
+    data.phone ? `Телефон: ${data.phone}` : "",
+    data.email ? `Email: ${data.email}` : "",
+    data.message ? `Сообщение: ${data.message}` : "",
+  ].filter(Boolean);
+  if (Array.isArray(data.payload?.items)) {
+    lines.push("Товары:");
+    for (const item of data.payload.items.slice(0, 20)) {
+      lines.push(`- ${item.name} × ${item.qty} — ${item.price} ₽`);
+    }
+    lines.push(`Итого: ${data.payload.total || 0} ₽`);
+  }
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: lines.join("\n") }),
+    });
+  } catch (error) {
+    console.warn("[Regola] Telegram notification failed:", error.message);
+  }
 }
 
 function mapUser(user) {

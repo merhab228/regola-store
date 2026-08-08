@@ -39,8 +39,8 @@ export function seedIfNeeded() {
 
   const insertProduct = db.prepare(`
     INSERT INTO products
-      (name, price, category_id, description, image, stock, views, created_at, ozon_url, wb_url, ym_url, wb_price, ozon_price, ym_price)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (name, price, category_id, description, image, stock, views, created_at, ozon_url, wb_url, ym_url, video_url, images_json)
+    VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const now = new Date().toISOString();
@@ -50,15 +50,13 @@ export function seedIfNeeded() {
     1,
     "Классическая дверная ручка в хроме для межкомнатных дверей.",
     "https://images.unsplash.com/photo-1616047006789-b7af2f5f4ca4?auto=format&fit=crop&w=600&q=80",
-    18,
     45,
     now,
     "https://www.ozon.ru/seller/torretta/",
     "https://www.wildberries.ru/seller/782141",
     "https://market.yandex.ru/business--regola/203997184",
-    1850,
-    1890,
-    1920
+    "",
+    JSON.stringify(["https://images.unsplash.com/photo-1616047006789-b7af2f5f4ca4?auto=format&fit=crop&w=600&q=80"])
   );
   insertProduct.run(
     "Regola Matte Black",
@@ -66,14 +64,12 @@ export function seedIfNeeded() {
     1,
     "Матовая чёрная ручка в современном минималистичном дизайне.",
     "https://images.unsplash.com/photo-1615873968403-89e068629265?auto=format&fit=crop&w=600&q=80",
-    12,
     62,
     now,
     "https://www.ozon.ru/seller/torretta/",
     "https://www.wildberries.ru/seller/782141",
     "https://market.yandex.ru/business--regola/203997184",
-    2190,
-    2250,
-    2290
+    "",
+    JSON.stringify(["https://images.unsplash.com/photo-1615873968403-89e068629265?auto=format&fit=crop&w=600&q=80"])
   );
 }

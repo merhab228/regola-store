@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import Layout from "./components/Layout";
 import { useStore } from "./context/StoreContext";
@@ -21,24 +21,44 @@ function productImages(product) {
 function PriceBlock({ product, large = false }) {
   return (
     <div className={"price-block" + (large ? " price-block--large" : "")}>
-      <p className="price-block__value"><span>от</span><b>{formatRub(product.price)} ₽</b></p>
+      <p className="price-block__value"><b>{formatRub(product.price)} ₽</b></p>
     </div>
   );
 }
 
-function MarketplaceLinks({ product }) {
+function MarketplaceLinks({ product, compact = false }) {
   const links = [
-    ["Wildberries", product.wbUrl ?? product.wb_url],
-    ["Ozon", product.ozonUrl ?? product.ozon_url],
-    ["Яндекс Маркет", product.ymUrl ?? product.ym_url],
-  ].filter(([, url]) => url);
+    ["Наш товар на ВБ", "WB", product.wbUrl ?? product.wb_url],
+    ["Наш товар на Ozon", "OZON", product.ozonUrl ?? product.ozon_url],
+    ["Наш товар на Яндекс Маркет", "Я.Маркет", product.ymUrl ?? product.ym_url],
+  ].filter(([, , url]) => url);
 
   if (!links.length) return null;
   return (
-    <div className="market-links">
-      {links.map(([label, url]) => (
-        <a key={label} href={url} target="_blank" rel="noreferrer">{label}</a>
+    <div className={"market-offers" + (compact ? " market-offers--compact" : "")}>
+      {links.map(([label, badge, url]) => (
+        <a key={label} href={url} target="_blank" rel="noreferrer">
+          <span>{label}</span>
+          <b>{badge}</b>
+        </a>
       ))}
+    </div>
+  );
+}
+
+function DescriptionText({ text }) {
+  const blocks = String(text || "").split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+  if (!blocks.length) return null;
+  return (
+    <div className="description-text">
+      {blocks.map((block, index) => {
+        const lines = block.split(/\n/).map((line) => line.trim()).filter(Boolean);
+        const isList = lines.length > 1 && lines.every((line) => /^[-•*]/.test(line));
+        if (isList) {
+          return <ul key={index}>{lines.map((line) => <li key={line}>{line.replace(/^[-•*]\s*/, "")}</li>)}</ul>;
+        }
+        return <p key={index}>{block}</p>;
+      })}
     </div>
   );
 }
@@ -46,13 +66,8 @@ function MarketplaceLinks({ product }) {
 function HomePage() {
   const { products } = useStore();
   const location = useLocation();
-  const [query, setQuery] = useState("");
   const handles = products.filter((p) => (p.category_id ?? p.categoryId) === 1);
   const catalogHandles = [...handles].sort((a, b) => String(a.name).localeCompare(String(b.name), "ru", { sensitivity: "base" }));
-  const normalizedQuery = query.trim().toLowerCase();
-  const visibleHandles = normalizedQuery
-    ? catalogHandles.filter((p) => [p.name, p.description].some((value) => String(value ?? "").toLowerCase().includes(normalizedQuery)))
-    : catalogHandles;
 
   useEffect(() => {
     if (!location.hash) return;
@@ -64,61 +79,57 @@ function HomePage() {
   return (
     <>
       <section id="catalog" className="catalog-section catalog-section--first motion-in" aria-labelledby="catalog-heading">
-        <div className="catalog-head">
-          <label className="catalog-search">
-            <span>Поиск по товарам</span>
-            <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Название или описание" />
-          </label>
-          <div>
-            <h1 id="catalog-heading">Каталог</h1>
-            <p className="catalog-lead">Выберите модель и перейдите в карточку товара.</p>
+        <div className="catalog-title">
+          <span />
+          <h1 id="catalog-heading">Каталог</h1>
+          <span />
+        </div>
+        <p className="catalog-lead catalog-lead--center">Выберите модель и откройте карточку товара.</p>
+        {catalogHandles.length === 0 ? <p className="catalog-empty">Каталог скоро будет заполнен.</p> : <ProductGrid products={catalogHandles} />}
+      </section>
+
+      <section id="payment" className="info-section motion-in motion-in--delay-1" aria-labelledby="payment-heading">
+        <h2 id="payment-heading">Оплата и доставка</h2>
+        <div className="info-grid">
+          <div className="info-card">
+            <h3>Оплата</h3>
+            <p>Для оплаты на расчётный счёт напишите нам — мы отправим счёт с реквизитами. Онлайн-оплата через сайт будет подключена позже.</p>
+          </div>
+          <div className="info-card">
+            <h3>Доставка</h3>
+            <p>Отправляем заказы через СДЭК или Почту России. Доставка оплачивается отдельно и рассчитывается после подтверждения заказа.</p>
           </div>
         </div>
-        {visibleHandles.length === 0 ? <p className="catalog-empty">По вашему запросу ничего не найдено.</p> : <ProductGrid products={visibleHandles} />}
       </section>
 
-      <section id="home" className="hero motion-in motion-in--delay-1">
-        <h2>Главная</h2>
-        <p>Добро пожаловать в Regola — бренд стильных и надёжных дверных ручек!</p>
-        <p>Предлагаем элегантную фурнитуру для межкомнатных дверей.</p>
-        <p>Выбирайте качество и дизайн, который подчеркнёт индивидуальность вашего интерьера!</p>
-        <ul className="feature-list">
-          <li>Неповторимый стиль</li>
-          <li>Постоянное обновление ассортимента</li>
-          <li>Высокое качество</li>
-          <li>Приятные цены</li>
-        </ul>
+      <section id="about" className="info-section motion-in motion-in--delay-2" aria-labelledby="about-heading">
+        <h2 id="about-heading">Цель компании</h2>
+        <p>REGOLA — торговая марка дверных ручек, которая уверенно развивается на рынке уже 3 года. Сегодня продукцию REGOLA можно встретить на крупнейших маркетплейсах, но мы стремимся к более тесному взаимодействию с клиентами: на нашем сайте вы можете оформить заказ напрямую, без посредников.</p>
+        <p>Такой подход нередко оказывается выгоднее для покупателя, а для нас — возможность выстраивать прозрачные и доверительные отношения с каждым клиентом. Мы по-прежнему сохраняем присутствие на маркетплейсах, но в перспективе планируем сфокусироваться на прямых продажах.</p>
+        <p>Для юридических лиц предусмотрена возможность оптовых закупок с оплатой по расчётному счёту. На всю продукцию REGOLA действует гарантия качества сроком 1 год, а при возникновении любых вопросов или сложностей мы всегда на связи — вместе найдём оптимальное решение.</p>
       </section>
 
-      <section id="order" className="info-section motion-in motion-in--delay-2" aria-labelledby="order-heading">
-        <h2 id="order-heading">Как оформить заказ</h2>
+      <section id="order" className="info-section motion-in motion-in--delay-3" aria-labelledby="order-heading">
+        <h2 id="order-heading">Заказ через маркетплейсы</h2>
         <div className="info-grid info-grid--triple">
-          <div className="info-card"><h3>1. Выберите ручку</h3><p>Откройте карточку товара в каталоге и сравните предложения на маркетплейсах.</p></div>
-          <div className="info-card"><h3>2. Перейдите на площадку</h3><p>Нажмите Wildberries, Ozon или Яндекс Маркет в карточке товара.</p></div>
-          <div className="info-card"><h3>3. Оформите покупку</h3><p>Завершите заказ на выбранном маркетплейсе или свяжитесь с нами по телефону.</p></div>
+          <div className="info-card"><h3>1. Откройте товар</h3><p>Нажмите на фото или название товара в каталоге, чтобы перейти в подробную карточку.</p></div>
+          <div className="info-card"><h3>2. Выберите площадку</h3><p>Внизу карточки товара размещены ссылки на Wildberries, Ozon и Яндекс Маркет, если товар там опубликован.</p></div>
+          <div className="info-card"><h3>3. Оформите заказ</h3><p>Можно заказать через маркетплейс или добавить товар в корзину сайта и отправить заявку напрямую нам.</p></div>
         </div>
       </section>
 
-      <section id="about" className="info-section motion-in motion-in--delay-3" aria-labelledby="about-heading">
-        <h2 id="about-heading">О компании Regola: качество, проверенное технологиями</h2>
-        <p>Бренд Regola создан для тех, кто ценит сочетание эстетики и функциональности в каждой детали интерьера. Мы специализируемся на производстве дверных ручек для межкомнатных дверей.</p>
-        <p>Наше производство расположено в Китае — на площадках с высокотехнологичным оборудованием. Это позволяет нам:</p>
-        <ul className="feature-list">
-          <li>внедрять передовые инженерные решения;</li>
-          <li>обеспечивать высокую точность изготовления деталей;</li>
-          <li>контролировать качество на каждом этапе производства.</li>
-        </ul>
-        <p>Мы тщательно подбираем материалы, тестируем образцы и следим за соответствием продукции международным стандартам. Каждая дверная ручка Regola проходит многоступенчатую проверку перед отправкой.</p>
-        <p><b>Доверьтесь опыту Regola — выберите фурнитуру, которая прослужит долгие годы!</b></p>
+      <section id="guarantees" className="info-section guarantee-section motion-in motion-in--delay-4" aria-labelledby="guarantees-heading">
+        <div>
+          <h2 id="guarantees-heading">Гарантии</h2>
+          <p>На всю продукцию REGOLA действует гарантия качества сроком 1 год. Мы внимательно проверяем фурнитуру перед продажей, а если у вас появится вопрос по заказу, комплектации или эксплуатации — свяжитесь с нами, и мы поможем найти решение.</p>
+        </div>
+        <div className="guarantee-visual" aria-hidden="true">1 год<br /><span>гарантии</span></div>
       </section>
 
-      <section id="guarantees" className="info-section motion-in motion-in--delay-4" aria-labelledby="guarantees-heading">
-        <h2 id="guarantees-heading">Гарантии</h2>
-        <div className="info-grid info-grid--triple">
-          <div className="info-card"><h3>Качество</h3><p>Работаем с проверенными материалами и контролируем каждую позицию в каталоге.</p></div>
-          <div className="info-card"><h3>Срок службы</h3><p>При правильном монтаже ручки сохраняют внешний вид и надёжную механику на долгие годы.</p></div>
-          <div className="info-card"><h3>Поддержка</h3><p>Если возник вопрос по заказу или комплектации — напишите нам или позвоните.</p></div>
-        </div>
+      <QuestionSection />
+
+      <section className="seo-section" aria-label="Ключевые фразы">
+        <p>дверные ручки REGOLA, купить дверные ручки, ручки для межкомнатных дверей, дверная фурнитура, ручки Санкт-Петербург, фурнитура для дверей, качественные дверные ручки, Regola</p>
       </section>
     </>
   );
@@ -129,23 +140,34 @@ function ProductGrid({ products }) {
     <div className="grid">
       {products.map((p) => (
         <article key={p.id} className="card">
-          <img src={productImages(p)[0]} alt={p.name} />
-          <h3>{p.name}</h3>
+          <Link className="card__image-link" to={"/product/" + p.id}><img src={productImages(p)[0]} alt={p.name} /></Link>
+          <h3><Link to={"/product/" + p.id}>{p.name}</Link></h3>
           <PriceBlock product={p} />
-          <MarketplaceLinks product={p} />
-          <a className="btn-outline" href={"/product/" + p.id}>Подробнее</a>
+          <Link className="btn-outline" to={"/product/" + p.id}>Подробнее</Link>
         </article>
       ))}
     </div>
   );
 }
 
+function QuantityPicker({ value, onChange }) {
+  return (
+    <div className="qty-picker" aria-label="Количество">
+      <button type="button" onClick={() => onChange(Math.max(1, value - 1))}>−</button>
+      <input type="number" min="1" value={value} onChange={(e) => onChange(Math.max(1, Number(e.target.value) || 1))} />
+      <button type="button" onClick={() => onChange(value + 1)}>+</button>
+    </div>
+  );
+}
+
 function ProductPage() {
   const { id } = useParams();
-  const { products } = useStore();
+  const { products, addToCart } = useStore();
   const product = products.find((p) => p.id === Number(id));
   const images = useMemo(() => productImages(product || {}), [product]);
   const [activeImage, setActiveImage] = useState("");
+  const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
 
   useEffect(() => {
     setActiveImage(images[0] || "");
@@ -165,13 +187,121 @@ function ProductPage() {
             ))}
           </div>
         )}
+        {product.videoUrl && (
+          <div className="product-video">
+            {/\.(mp4|webm|ogg)(\?.*)?$/i.test(product.videoUrl)
+              ? <video src={product.videoUrl} controls />
+              : <iframe src={product.videoUrl} title={`Видео ${product.name}`} loading="lazy" allowFullScreen />}
+          </div>
+        )}
       </div>
-      <div>
+      <div className="product-info">
         <h1>{product.name}</h1>
-        <p>{product.description}</p>
+        <DescriptionText text={product.description} />
         <PriceBlock product={product} large />
+        <div className="product-buy">
+          <QuantityPicker value={qty} onChange={setQty} />
+          <button className="btn" type="button" onClick={() => { addToCart(product, qty); setAdded(true); }}>В корзину</button>
+        </div>
+        {added && <p className="success-text">Товар добавлен в корзину.</p>}
         <MarketplaceLinks product={product} />
       </div>
+    </section>
+  );
+}
+
+function QuestionSection() {
+  const [form, setForm] = useState({ name: "", phone: "", email: "", message: "" });
+  const [status, setStatus] = useState("");
+  const submit = async (e) => {
+    e.preventDefault();
+    setStatus("");
+    try {
+      await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      }).then(async (r) => {
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || "Ошибка отправки");
+      });
+      setForm({ name: "", phone: "", email: "", message: "" });
+      setStatus("Вопрос отправлен. Мы скоро свяжемся с вами.");
+    } catch (error) {
+      setStatus(error.message);
+    }
+  };
+  return (
+    <section id="question" className="info-section question-section" aria-labelledby="question-heading">
+      <div>
+        <h2 id="question-heading">Задать вопрос</h2>
+        <p>Напишите, что хотите уточнить. Сообщение попадёт в заявки сайта, а при подключении Telegram-бота — сразу в Telegram.</p>
+      </div>
+      <form className="question-form" onSubmit={submit}>
+        <input required placeholder="Ваше имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <input placeholder="Телефон" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <textarea required placeholder="Ваш вопрос" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+        <button className="btn" type="submit">Отправить</button>
+        {status && <p className="form-hint">{status}</p>}
+      </form>
+    </section>
+  );
+}
+
+function CartPage() {
+  const { cartItems, updateCartQty, removeFromCart, cartTotal, clearCart, sendCheckout } = useStore();
+  const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", comment: "" });
+  const [status, setStatus] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!cartItems.length) return;
+    setStatus("");
+    try {
+      await sendCheckout({ ...form, delivery: "СДЭК / Почта России", payment: "Счёт на оплату", items: cartItems, total: cartTotal });
+      clearCart();
+      setForm({ name: "", phone: "", email: "", address: "", comment: "" });
+      setStatus("Заявка отправлена. Мы свяжемся с вами для подтверждения оплаты и доставки.");
+    } catch (error) {
+      setStatus(error.message);
+    }
+  };
+
+  return (
+    <section className="cart-page">
+      <h1>Корзина</h1>
+      {!cartItems.length ? (
+        <p>{status || "Корзина пустая."}</p>
+      ) : (
+        <>
+          <div className="cart-list">
+            {cartItems.map((item) => (
+              <div key={item.id} className="cart-row">
+                <img src={productImages(item)[0]} alt="" />
+                <div>
+                  <b>{item.name}</b>
+                  <p>{formatRub(item.price)} ₽ за шт.</p>
+                </div>
+                <QuantityPicker value={item.qty} onChange={(qty) => updateCartQty(item.id, qty)} />
+                <b>{formatRub(item.price * item.qty)} ₽</b>
+                <button type="button" onClick={() => removeFromCart(item.id)}>Удалить</button>
+              </div>
+            ))}
+          </div>
+          <div className="cart-total">Итого: <b>{formatRub(cartTotal)} ₽</b></div>
+          <form className="form checkout-form" onSubmit={submit}>
+            <h2>Оформление заказа</h2>
+            <p>После отправки заявки мы подтвердим наличие, способ доставки и отправим счёт с реквизитами. Доставка оплачивается отдельно.</p>
+            <input required placeholder="Ваше имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input required placeholder="Телефон" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input placeholder="Город / адрес доставки" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            <textarea placeholder="Комментарий к заказу" value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} />
+            <button className="btn" type="submit">Отправить заказ</button>
+            {status && <p className="form-hint">{status}</p>}
+          </form>
+        </>
+      )}
     </section>
   );
 }
@@ -212,13 +342,14 @@ function productToAdminForm(p) {
     description: p.description,
     images: productImages(p),
     imageUrl: "",
+    videoUrl: p.videoUrl ?? p.video_url ?? "",
     ozonUrl: p.ozonUrl ?? p.ozon_url ?? "",
     wbUrl: p.wbUrl ?? p.wb_url ?? "",
     ymUrl: p.ymUrl ?? p.ym_url ?? "",
   };
 }
 
-const EMPTY_ADMIN_FORM = { id: null, name: "", price: "", categoryId: 1, description: "", images: [], imageUrl: "", ozonUrl: "", wbUrl: "", ymUrl: "" };
+const EMPTY_ADMIN_FORM = { id: null, name: "", price: "", categoryId: 1, description: "", images: [], imageUrl: "", videoUrl: "", ozonUrl: "", wbUrl: "", ymUrl: "" };
 
 function fileToOptimizedDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -233,8 +364,7 @@ function fileToOptimizedDataUrl(file) {
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(img.width * scale));
         canvas.height = Math.max(1, Math.round(img.height * scale));
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL("image/jpeg", 0.86));
       };
       img.src = String(reader.result || "");
@@ -262,27 +392,19 @@ function AdminPage() {
     setStatusText("");
   };
 
-  const addImages = (items) => {
-    setForm((prev) => ({ ...prev, images: [...new Set([...prev.images, ...items])].slice(0, 12) }));
-  };
-
+  const addImages = (items) => setForm((prev) => ({ ...prev, images: [...new Set([...prev.images, ...items])].slice(0, 20) }));
   const uploadImages = (files) => {
     const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith("image/"));
     if (!imageFiles.length) return;
     Promise.all(imageFiles.map(fileToOptimizedDataUrl)).then(addImages).catch(() => alert("Не удалось загрузить изображения"));
   };
-
   const addImageUrl = () => {
     const url = form.imageUrl.trim();
     if (!url) return;
     addImages([url]);
     setForm((prev) => ({ ...prev, imageUrl: "" }));
   };
-
-  const removeImage = (src) => {
-    setForm((prev) => ({ ...prev, images: prev.images.filter((item) => item !== src) }));
-  };
-
+  const removeImage = (src) => setForm((prev) => ({ ...prev, images: prev.images.filter((item) => item !== src) }));
   const moveImage = (index, direction) => {
     setForm((prev) => {
       const next = [...prev.images];
@@ -292,17 +414,12 @@ function AdminPage() {
       return { ...prev, images: next };
     });
   };
-
-  const makeMainImage = (src) => {
-    setForm((prev) => ({ ...prev, images: [src, ...prev.images.filter((item) => item !== src)] }));
-  };
-
+  const makeMainImage = (src) => setForm((prev) => ({ ...prev, images: [src, ...prev.images.filter((item) => item !== src)] }));
   const editProduct = (product) => {
     setForm(productToAdminForm(product));
     setStatusText("Режим редактирования: внесите изменения и нажмите «Сохранить».");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
   const removeProduct = async (product) => {
     if (!window.confirm(`Удалить товар «${product.name}»?`)) return;
     try {
@@ -312,13 +429,9 @@ function AdminPage() {
       alert(error.message);
     }
   };
-
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.images.length) {
-      alert("Добавьте хотя бы одно фото товара");
-      return;
-    }
+    if (!form.images.length) return alert("Добавьте хотя бы одно фото товара");
     setIsSaving(true);
     setStatusText("");
     try {
@@ -342,12 +455,12 @@ function AdminPage() {
       <div className="admin-hero">
         <div>
           <h1>Админ-панель</h1>
-          <p>Быстрое управление каталогом Regola: товары, фото, цены и ссылки на маркетплейсы.</p>
+          <p>Управление товарами, фото, видео, ценами, ссылками на маркетплейсы и заявками.</p>
         </div>
         <div className="admin-stats">
           <span><b>{products.length}</b> товаров</span>
           <span><b>{products.filter((p) => productImages(p).length > 1).length}</b> с галереей</span>
-          <span><b>{products.filter((p) => (p.wbUrl || p.ozonUrl || p.ymUrl || p.wb_url || p.ozon_url || p.ym_url)).length}</b> со ссылками</span>
+          <span><b>{orders.length}</b> заявок</span>
         </div>
       </div>
 
@@ -362,9 +475,9 @@ function AdminPage() {
       <h2>{form.id ? "Редактирование товара" : "Новый товар"}</h2>
       <form className="form admin-form" onSubmit={submit}>
         <input required placeholder="Название" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input required type="number" min="0" placeholder="Цена от, ₽" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+        <input required type="number" min="0" placeholder="Цена, ₽" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
         <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <textarea required placeholder="Описание" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        <textarea required rows="9" placeholder={"Описание. Можно писать абзацы и списки:\n\nПервый абзац\n\n- пункт\n- пункт"} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
 
         <div className="admin-fieldset">
           <b>Фото товара</b>
@@ -393,6 +506,11 @@ function AdminPage() {
         </div>
 
         <div className="admin-fieldset">
+          <b>Видео</b>
+          <input type="url" placeholder="Ссылка на видео: mp4/webm или iframe-ссылка" value={form.videoUrl} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} />
+        </div>
+
+        <div className="admin-fieldset">
           <b>Ссылки на маркетплейсы</b>
           <input type="url" placeholder="Ссылка Wildberries" value={form.wbUrl} onChange={(e) => setForm({ ...form, wbUrl: e.target.value })} />
           <input type="url" placeholder="Ссылка Ozon" value={form.ozonUrl} onChange={(e) => setForm({ ...form, ozonUrl: e.target.value })} />
@@ -411,9 +529,9 @@ function AdminPage() {
           <div key={p.id} className="admin-product-row">
             <img src={productImages(p)[0]} alt="" />
             <span className="admin-product-row__name">{p.name}</span>
-            <span>от {formatRub(p.price)} ₽</span>
+            <span>{formatRub(p.price)} ₽</span>
             <span>{productImages(p).length} фото</span>
-            <MarketplaceLinks product={p} />
+            <MarketplaceLinks product={p} compact />
             <button type="button" onClick={() => editProduct(p)}>Редактировать</button>
             <button type="button" onClick={() => removeProduct(p)}>Удалить</button>
           </div>
@@ -422,14 +540,14 @@ function AdminPage() {
 
       {orders.length > 0 && (
         <>
-          <h2>Заказы</h2>
+          <h2>Заявки</h2>
           {orders.map((o) => (
             <div key={o.id} className="order">
-              <b>#{o.id}</b> — {o.name} — {o.status}
+              <b>#{o.id}</b> — {o.name} — {o.phone} — {formatRub(o.total)} ₽ — {o.status}
               <select value={o.status} onChange={(e) => updateOrderStatus(o.id, e.target.value).catch((err) => alert(err.message))}>
                 <option>обрабатывается</option>
                 <option>выполнен</option>
-                <option>отменен</option>
+                <option>отменён</option>
               </select>
             </div>
           ))}
@@ -445,6 +563,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/product/:id" element={<ProductPage />} />
+        <Route path="/cart" element={<CartPage />} />
         {ADMIN_ENTRY_ROUTES.map((path) => <Route key={path} path={path} element={<AdminLoginPage />} />)}
         <Route path="/admin" element={<AdminPage />} />
       </Routes>

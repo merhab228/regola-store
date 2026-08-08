@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 const STORAGE_KEYS = {
   token: "regola_token",
+  cart: "regola_cart",
 };
 
 const StoreContext = createContext(null);
@@ -22,6 +23,7 @@ export function StoreProvider({ children }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [cartItems, setCartItems] = useState(() => load(STORAGE_KEYS.cart, []));
   const [token, setToken] = useState(() => load(STORAGE_KEYS.token, null));
   const [user, setUser] = useState(null);
 
@@ -49,6 +51,10 @@ export function StoreProvider({ children }) {
     if (!token || !user?.isAdmin) return;
     api("/api/admin/orders", {}, token).then(setOrders).catch(() => {});
   }, [token, user]);
+
+  useEffect(() => {
+    save(STORAGE_KEYS.cart, cartItems);
+  }, [cartItems]);
 
   const fetchProducts = async (query = {}) => {
     const qs = new URLSearchParams(query).toString();
@@ -120,14 +126,54 @@ export function StoreProvider({ children }) {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? nextOrder : o)));
   };
 
+  const addToCart = (product, qty = 1) => {
+    const count = Math.max(1, Number(qty) || 1);
+    setCartItems((prev) => {
+      const found = prev.find((item) => item.id === product.id);
+      if (found) return prev.map((item) => (item.id === product.id ? { ...item, qty: item.qty + count } : item));
+      return [
+        ...prev,
+        {
+          id: product.id,
+          name: product.name,
+          price: Number(product.price) || 0,
+          image: product.image,
+          images: Array.isArray(product.images) ? product.images : [],
+          qty: count,
+        },
+      ];
+    });
+  };
+
+  const updateCartQty = (id, qty) => {
+    const count = Math.max(1, Number(qty) || 1);
+    setCartItems((prev) => prev.map((item) => (item.id === id ? { ...item, qty: count } : item)));
+  };
+
+  const removeFromCart = (id) => setCartItems((prev) => prev.filter((item) => item.id !== id));
+  const clearCart = () => setCartItems([]);
+  const cartTotal = cartItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
+
+  const sendCheckout = async (payload) => api("/api/checkout", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
   return (
     <StoreContext.Provider
       value={{
         categories,
         products,
         orders,
+        cartItems,
+        cartTotal,
         user,
         logout,
+        addToCart,
+        updateCartQty,
+        removeFromCart,
+        clearCart,
+        sendCheckout,
         upsertProduct,
         deleteProduct,
         updateOrderStatus,

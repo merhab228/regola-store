@@ -24,6 +24,9 @@ export default function BottomContacts() {
         </div>
         <div className="site-footer__contacts">
           <a className="site-footer__phone" href="tel:+79829412000">+7 982 941-20-00</a>
+          <a href="https://t.me/" target="_blank" rel="noopener noreferrer">Telegram</a>
+          <a href="https://wa.me/79829412000" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+          <a href="https://max.ru/" target="_blank" rel="noopener noreferrer">MAX</a>
         </div>
       </div>
     </footer>

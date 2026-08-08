@@ -43,10 +43,8 @@ CREATE TABLE IF NOT EXISTS products (
   ozon_url TEXT,
   wb_url TEXT,
   ym_url TEXT,
-  images_json TEXT,
-  wb_price INTEGER,
-  ozon_price INTEGER,
-  ym_price INTEGER
+  video_url TEXT,
+  images_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -70,6 +68,17 @@ CREATE TABLE IF NOT EXISTS order_items (
   qty INTEGER NOT NULL,
   price INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS site_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  phone TEXT,
+  email TEXT,
+  message TEXT NOT NULL,
+  payload_json TEXT,
+  created_at TEXT NOT NULL
+);
 `);
 
 const userColumns = db.prepare("PRAGMA table_info(users)").all();
@@ -82,10 +91,8 @@ const productColumns = db.prepare("PRAGMA table_info(products)").all();
 const productColNames = new Set(productColumns.map((c) => c.name));
 for (const [column, type] of [
   ["ym_url", "TEXT"],
+  ["video_url", "TEXT"],
   ["images_json", "TEXT"],
-  ["wb_price", "INTEGER"],
-  ["ozon_price", "INTEGER"],
-  ["ym_price", "INTEGER"],
 ]) {
   if (!productColNames.has(column)) db.exec(`ALTER TABLE products ADD COLUMN ${column} ${type}`);
 }
