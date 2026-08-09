@@ -72,10 +72,12 @@ CREATE TABLE IF NOT EXISTS order_items (
 CREATE TABLE IF NOT EXISTS site_messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   type TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new',
   name TEXT NOT NULL,
   phone TEXT,
   email TEXT,
   message TEXT NOT NULL,
+  admin_note TEXT,
   payload_json TEXT,
   created_at TEXT NOT NULL
 );
@@ -95,6 +97,15 @@ for (const [column, type] of [
   ["images_json", "TEXT"],
 ]) {
   if (!productColNames.has(column)) db.exec(`ALTER TABLE products ADD COLUMN ${column} ${type}`);
+}
+
+const messageColumns = db.prepare("PRAGMA table_info(site_messages)").all();
+const messageColNames = new Set(messageColumns.map((c) => c.name));
+for (const [column, type] of [
+  ["status", "TEXT NOT NULL DEFAULT 'new'"],
+  ["admin_note", "TEXT"],
+]) {
+  if (!messageColNames.has(column)) db.exec(`ALTER TABLE site_messages ADD COLUMN ${column} ${type}`);
 }
 
 export default db;

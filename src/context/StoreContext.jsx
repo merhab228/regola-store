@@ -23,6 +23,7 @@ export function StoreProvider({ children }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [cartItems, setCartItems] = useState(() => load(STORAGE_KEYS.cart, []));
   const [token, setToken] = useState(() => load(STORAGE_KEYS.token, null));
   const [user, setUser] = useState(null);
@@ -36,6 +37,7 @@ export function StoreProvider({ children }) {
     if (!token) {
       setUser(null);
       setOrders([]);
+      setMessages([]);
       return;
     }
     api("/api/me", {}, token)
@@ -50,6 +52,7 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (!token || !user?.isAdmin) return;
     api("/api/admin/orders", {}, token).then(setOrders).catch(() => {});
+    api("/api/admin/messages", {}, token).then(setMessages).catch(() => {});
   }, [token, user]);
 
   useEffect(() => {
@@ -67,6 +70,7 @@ export function StoreProvider({ children }) {
     setToken(null);
     setUser(null);
     setOrders([]);
+    setMessages([]);
     save(STORAGE_KEYS.token, null);
   };
 
@@ -126,6 +130,15 @@ export function StoreProvider({ children }) {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? nextOrder : o)));
   };
 
+  const updateMessage = async (messageId, payload) => {
+    if (!token) return;
+    const nextMessage = await authedApi("/api/admin/messages/" + messageId, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? nextMessage : m)));
+  };
+
   const addToCart = (product, qty = 1) => {
     const count = Math.max(1, Number(qty) || 1);
     setCartItems((prev) => {
@@ -170,6 +183,7 @@ export function StoreProvider({ children }) {
         categories,
         products,
         orders,
+        messages,
         cartItems,
         cartTotal,
         user,
@@ -183,6 +197,7 @@ export function StoreProvider({ children }) {
         upsertProduct,
         deleteProduct,
         updateOrderStatus,
+        updateMessage,
         grantAdminAccess,
         isAdminSessionValid: !!user?.isAdmin,
         fetchProducts,

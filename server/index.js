@@ -208,11 +208,27 @@ app.get("/api/admin/orders", authRequired, adminRequired, (_, res) => {
 
 app.patch("/api/admin/orders/:id/status", authRequired, adminRequired, (req, res) => {
   const { status } = req.body;
-  const allowed = ["обрабатывается", "выполнен", "отменен"];
+  const allowed = ["обрабатывается", "выполнен", "отменён", "отменен"];
   if (!allowed.includes(status)) return res.status(400).json({ message: "Invalid status" });
   db.prepare("UPDATE orders SET status = ? WHERE id = ?").run(status, Number(req.params.id));
   const row = db.prepare("SELECT * FROM orders WHERE id = ?").get(Number(req.params.id));
   res.json(withItems(row));
+});
+
+app.get("/api/admin/messages", authRequired, adminRequired, (_, res) => {
+  const rows = db.prepare("SELECT * FROM site_messages ORDER BY created_at DESC").all();
+  res.json(rows.map(mapSiteMessage));
+});
+
+app.patch("/api/admin/messages/:id", authRequired, adminRequired, (req, res) => {
+  const status = String(req.body.status || "").trim();
+  const adminNote = String(req.body.adminNote ?? req.body.admin_note ?? "").trim();
+  const allowed = ["new", "in_work", "done", "spam"];
+  if (!allowed.includes(status)) return res.status(400).json({ message: "Invalid status" });
+  db.prepare("UPDATE site_messages SET status = ?, admin_note = ? WHERE id = ?").run(status, adminNote, Number(req.params.id));
+  const row = db.prepare("SELECT * FROM site_messages WHERE id = ?").get(Number(req.params.id));
+  if (!row) return res.status(404).json({ message: "Not found" });
+  res.json(mapSiteMessage(row));
 });
 
 app.post("/api/admin/products", authRequired, adminRequired, (req, res) => {
@@ -374,10 +390,10 @@ function saveSiteMessage(type, body = {}) {
   const payloadJson = JSON.stringify(body);
   const createdAt = new Date().toISOString();
   const result = db.prepare(`
-    INSERT INTO site_messages (type, name, phone, email, message, payload_json, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(type, name, phone, email, message || "Заказ с сайта", payloadJson, createdAt);
-  return { id: Number(result.lastInsertRowid), type, name, phone, email, message: message || "Заказ с сайта", payload: body, createdAt };
+    INSERT INTO site_messages (type, status, name, phone, email, message, payload_json, created_at)
+    VALUES (?, 'new', ?, ?, ?, ?, ?, ?)
+  `).run(type, name, phone, email, message || "Заявка с сайта", payloadJson, createdAt);
+  return { id: Number(result.lastInsertRowid), type, status: "new", name, phone, email, message: message || "Заявка с сайта", payload: body, createdAt };
 }
 
 async function notifyTelegram(title, data) {
@@ -434,6 +450,29 @@ function withItems(order) {
     total: order.total,
     createdAt: order.created_at,
     items,
+  };
+}
+
+function mapSiteMessage(row) {
+  let payload = {};
+  try {
+    payload = row.payload_json ? JSON.parse(row.payload_json) : {};
+  } catch {
+    payload = {};
+  }
+  return {
+    id: row.id,
+    type: row.type,
+    status: row.status || "new",
+    name: row.name,
+    phone: row.phone || "",
+    email: row.email || "",
+    message: row.message,
+    adminNote: row.admin_note || "",
+    admin_note: row.admin_note || "",
+    payload,
+    createdAt: row.created_at,
+    created_at: row.created_at,
   };
 }
 

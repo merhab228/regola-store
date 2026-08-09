@@ -404,6 +404,26 @@ function productToAdminForm(p) {
 
 const EMPTY_ADMIN_FORM = { id: null, name: "", price: "", categoryId: 1, description: "", images: [], imageUrl: "", videoUrl: "", ozonUrl: "", wbUrl: "", ymUrl: "" };
 
+const MESSAGE_STATUS_LABELS = {
+  new: "новое",
+  in_work: "в работе",
+  done: "закрыто",
+  spam: "спам",
+};
+
+function formatDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString("ru-RU");
+}
+
+function messageTypeLabel(type) {
+  if (type === "order") return "заказ";
+  if (type === "question") return "вопрос";
+  return "обращение";
+}
+
 function fileToOptimizedDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -427,7 +447,7 @@ function fileToOptimizedDataUrl(file) {
 }
 
 function AdminPage() {
-  const { user, isAdminSessionValid, products, categories, upsertProduct, deleteProduct, orders, updateOrderStatus } = useStore();
+  const { user, isAdminSessionValid, products, categories, upsertProduct, deleteProduct, orders, messages, updateOrderStatus, updateMessage } = useStore();
   const [form, setForm] = useState(EMPTY_ADMIN_FORM);
   const [adminQuery, setAdminQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -513,7 +533,8 @@ function AdminPage() {
         <div className="admin-stats">
           <span><b>{products.length}</b> товаров</span>
           <span><b>{products.filter((p) => productImages(p).length > 1).length}</b> с галереей</span>
-          <span><b>{orders.length}</b> заявок</span>
+          <span><b>{orders.length}</b> заказов</span>
+          <span><b>{messages.filter((m) => m.status === "new").length}</b> новых обращений</span>
         </div>
       </div>
 
@@ -591,21 +612,76 @@ function AdminPage() {
         ))}
       </div>
 
-      {orders.length > 0 && (
-        <>
-          <h2>Заявки</h2>
-          {orders.map((o) => (
-            <div key={o.id} className="order">
-              <b>#{o.id}</b> — {o.name} — {o.phone} — {formatRub(o.total)} ₽ — {o.status}
+      <h2>Заказы ({orders.length})</h2>
+      <div className="admin-process-list">
+        {orders.length === 0 ? <p className="admin-empty">Заказов пока нет.</p> : orders.map((o) => (
+          <article key={o.id} className="admin-process-card">
+            <div className="admin-process-card__head">
+              <div>
+                <b>Заказ #{o.id}</b>
+                <span>{formatDateTime(o.createdAt)}</span>
+              </div>
               <select value={o.status} onChange={(e) => updateOrderStatus(o.id, e.target.value).catch((err) => alert(err.message))}>
                 <option>обрабатывается</option>
                 <option>выполнен</option>
                 <option>отменён</option>
               </select>
             </div>
-          ))}
-        </>
-      )}
+            <div className="admin-process-grid">
+              <p><b>Клиент:</b> {o.name}</p>
+              <p><b>Телефон:</b> <a href={"tel:" + o.phone}>{o.phone}</a></p>
+              <p><b>Адрес:</b> {o.address || "не указан"}</p>
+              <p><b>Доставка:</b> {o.delivery}</p>
+              <p><b>Оплата:</b> {o.payment}</p>
+              <p><b>Итого:</b> {formatRub(o.total)} ₽</p>
+            </div>
+            {o.items?.length > 0 && (
+              <ul className="admin-items">
+                {o.items.map((item) => (
+                  <li key={item.productId + item.name}>{item.name} × {item.qty} — {formatRub(item.price * item.qty)} ₽</li>
+                ))}
+              </ul>
+            )}
+          </article>
+        ))}
+      </div>
+
+      <h2>Обратная связь ({messages.length})</h2>
+      <div className="admin-process-list">
+        {messages.length === 0 ? <p className="admin-empty">Сообщений пока нет.</p> : messages.map((m) => (
+          <article key={m.id} className="admin-process-card">
+            <div className="admin-process-card__head">
+              <div>
+                <b>{messageTypeLabel(m.type)} #{m.id}</b>
+                <span>{formatDateTime(m.createdAt)}</span>
+              </div>
+              <select value={m.status} onChange={(e) => updateMessage(m.id, { status: e.target.value, adminNote: m.adminNote }).catch((err) => alert(err.message))}>
+                {Object.entries(MESSAGE_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
+            <div className="admin-process-grid">
+              <p><b>Имя:</b> {m.name}</p>
+              <p><b>Телефон:</b> {m.phone ? <a href={"tel:" + m.phone}>{m.phone}</a> : "не указан"}</p>
+              <p><b>Email:</b> {m.email ? <a href={"mailto:" + m.email}>{m.email}</a> : "не указан"}</p>
+              <p><b>Статус:</b> {MESSAGE_STATUS_LABELS[m.status] || m.status}</p>
+            </div>
+            <p className="admin-message-text">{m.message}</p>
+            {m.payload?.items?.length > 0 && (
+              <ul className="admin-items">
+                {m.payload.items.map((item) => (
+                  <li key={item.id + item.name}>{item.name} × {item.qty} — {formatRub(item.price * item.qty)} ₽</li>
+                ))}
+              </ul>
+            )}
+            <textarea
+              className="admin-note"
+              placeholder="Заметка администратора"
+              defaultValue={m.adminNote || ""}
+              onBlur={(e) => updateMessage(m.id, { status: m.status, adminNote: e.target.value }).catch((err) => alert(err.message))}
+            />
+          </article>
+        ))}
+      </div>
     </section>
   );
 }

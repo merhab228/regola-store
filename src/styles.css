@@ -692,6 +692,90 @@ textarea:focus {
   font-size: 13px;
   padding: 6px 8px;
 }
+
+.admin-process-list {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0 28px;
+}
+
+.admin-process-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--regola-border);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(15, 28, 43, 0.06);
+}
+
+.admin-process-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+}
+
+.admin-process-card__head > div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-process-card__head span {
+  color: rgba(21, 39, 59, 0.62);
+  font-size: 14px;
+}
+
+.admin-process-card__head select {
+  min-width: 170px;
+}
+
+.admin-process-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 18px;
+}
+
+.admin-process-grid p,
+.admin-message-text {
+  margin: 0;
+}
+
+.admin-process-grid a {
+  color: var(--regola-navy);
+  font-weight: 700;
+}
+
+.admin-items {
+  margin: 0;
+  padding-left: 20px;
+  color: rgba(21, 39, 59, 0.82);
+}
+
+.admin-message-text {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(229, 193, 155, 0.16);
+  white-space: pre-wrap;
+}
+
+.admin-note {
+  width: 100%;
+  min-height: 78px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--regola-border);
+  resize: vertical;
+  font: inherit;
+}
+
+.admin-empty {
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed var(--regola-border);
+  border-radius: 14px;
+  color: rgba(21, 39, 59, 0.64);
+}
 .image-upload {
   display: grid;
   gap: 8px;
@@ -1775,6 +1859,15 @@ textarea:focus {
 
   .cart-row {
     grid-template-columns: 72px 1fr;
+  }
+
+  .admin-process-card__head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-process-grid {
+    grid-template-columns: 1fr;
   }
 
   .cart-row .qty-picker,
