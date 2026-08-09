@@ -121,11 +121,12 @@ h3 {
   font-size: 20px;
   font-weight: 600;
   letter-spacing: 0.02em;
-  line-height: 1.3;
+  line-height: 1.1;
   color: var(--regola-sand);
   text-decoration: none;
   display: block;
-  max-width: min(220px, 28vw);
+  max-width: min(360px, 34vw);
+  white-space: nowrap;
 }
 .nav-tagline:hover {
   color: var(--regola-sand-hover);
@@ -1321,7 +1322,7 @@ textarea:focus {
     justify-self: center;
     text-align: center;
     max-width: 100%;
-    font-size: 13px;
+    font-size: clamp(16px, 4.5vw, 22px);
   }
   .nav-marketplaces {
     grid-column: 1 / -1;

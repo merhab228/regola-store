@@ -84,7 +84,7 @@ function HomePage() {
           <h1 id="catalog-heading">Каталог</h1>
           <span />
         </div>
-        <p className="catalog-lead catalog-lead--center">Выберите модель и откройте карточку товара.</p>
+        <p className="catalog-lead catalog-lead--center">Выберите товар.</p>
         {catalogHandles.length === 0 ? <p className="catalog-empty">Каталог скоро будет заполнен.</p> : <ProductGrid products={catalogHandles} />}
       </section>
 

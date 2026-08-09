@@ -186,7 +186,12 @@ app.post("/api/admin/login", (req, res) => {
     return fail();
   }
 
-  const user = db.prepare("SELECT * FROM users WHERE admin_login = ? AND is_admin = 1").get(loginRaw);
+  let user = db.prepare("SELECT * FROM users WHERE admin_login = ? AND is_admin = 1").get(loginRaw);
+  const envLogin = process.env.ADMIN_LOGIN?.trim();
+  const envPassword = process.env.ADMIN_PASSWORD?.trim();
+  if (envLogin && envPassword && loginRaw === envLogin && pwd === envPassword) {
+    user = ensureEnvAdminUser(envLogin, envPassword);
+  }
   const hash = user?.password_hash ?? BCRYPT_DUMMY;
   const ok = bcrypt.compareSync(pwd, hash);
   if (!user || !ok) return fail();
@@ -430,6 +435,25 @@ function withItems(order) {
     createdAt: order.created_at,
     items,
   };
+}
+
+function ensureEnvAdminUser(login, password) {
+  const existingAdmin = db.prepare("SELECT * FROM users WHERE is_admin = 1 ORDER BY id ASC LIMIT 1").get();
+  const hash = bcrypt.hashSync(password, 12);
+  const email = `admin-${login}@regola.invalid`;
+  if (existingAdmin) {
+    db.prepare(`
+      UPDATE users
+      SET admin_login = ?, password_hash = ?, email = ?, name = COALESCE(NULLIF(name, ''), 'Admin Regola')
+      WHERE id = ?
+    `).run(login, hash, email, existingAdmin.id);
+    return db.prepare("SELECT * FROM users WHERE id = ?").get(existingAdmin.id);
+  }
+  const result = db.prepare(`
+    INSERT INTO users (name, email, phone, address, password_hash, is_admin, admin_login)
+    VALUES (?, ?, ?, ?, ?, 1, ?)
+  `).run("Admin Regola", email, "+79829412000", "Санкт-Петербург, проспект Героев, 26", hash, login);
+  return db.prepare("SELECT * FROM users WHERE id = ?").get(Number(result.lastInsertRowid));
 }
 
 function migrateLegacyAdminAccount() {
