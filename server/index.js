@@ -9,6 +9,7 @@ import db from "./db.js";
 import { seedIfNeeded } from "./seed.js";
 import { adminRequired, authRequired, signToken } from "./middleware/auth.js";
 import { mapProduct } from "./mapProduct.js";
+import { CheckoutValidationError, createCheckoutHandler, estimateCheckoutDelivery } from "./checkout.js";
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -47,7 +48,7 @@ app.get("/api/categories", (_, res) => {
 
 app.get("/api/products", (req, res) => {
   const { search = "", categoryId = "", sort = "new" } = req.query;
-  let sql = "SELECT * FROM products WHERE 1=1";
+  let sql = "SELECT * FROM products WHERE is_active = 1";
   const params = [];
 
   if (search) {
@@ -71,7 +72,7 @@ app.get("/api/products", (req, res) => {
 });
 
 app.get("/api/products/:id", (req, res) => {
-  const row = db.prepare("SELECT * FROM products WHERE id = ?").get(Number(req.params.id));
+  const row = db.prepare("SELECT * FROM products WHERE id = ? AND is_active = 1").get(Number(req.params.id));
   if (!row) return res.status(404).json({ message: "Not found" });
   res.json(mapProduct(row));
 });
@@ -86,70 +87,22 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
-app.post("/api/cdek/estimate", async (req, res) => {
-  const body = req.body || {};
-  const city = String(body.city || body.address || "").trim();
-  const items = Array.isArray(body.items) ? body.items : [];
-  const qty = items.reduce((sum, item) => sum + Math.max(1, Number(item.qty) || 1), 0);
-  const goodsTotal = Math.max(0, Number(body.goodsTotal) || items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0));
-  if (!city) return res.status(400).json({ message: "Укажите город доставки" });
-
-  const estimate = estimateCdekFallback({ city, qty, goodsTotal });
-  res.json(estimate);
-});
-
-app.post("/api/checkout", async (req, res) => {
+app.post("/api/cdek/estimate", (req, res) => {
   try {
-    const body = req.body || {};
-    const items = Array.isArray(body.items) ? body.items : [];
-    if (!items.length) return res.status(400).json({ message: "Корзина пустая" });
-
-    const name = String(body.name || "").trim();
-    const phone = String(body.phone || "").trim();
-    if (!name || !phone) return res.status(400).json({ message: "Укажите имя и телефон" });
-
-    const createdAt = new Date().toISOString();
-    const goodsTotal = items.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
-    const deliveryPrice = Math.max(0, Number(body.deliveryPrice) || 0);
-    const total = Math.max(0, Number(body.total) || goodsTotal + deliveryPrice);
-    const result = db.prepare(`
-      INSERT INTO orders (user_id, status, name, phone, address, delivery, payment, total, created_at)
-      VALUES (0, 'обрабатывается', ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      name,
-      phone,
-      String(body.address || "").trim(),
-      buildDeliveryLabel(body),
-      buildPaymentLabel(body),
-      total,
-      createdAt
-    );
-    const orderId = Number(result.lastInsertRowid);
-    const insertItem = db.prepare("INSERT INTO order_items (order_id, product_id, name, qty, price) VALUES (?, ?, ?, ?, ?)");
-    for (const item of items.slice(0, 50)) {
-      insertItem.run(orderId, Number(item.id) || 0, String(item.name || "Товар").slice(0, 300), Math.max(1, Number(item.qty) || 1), Math.max(0, Number(item.price) || 0));
-    }
-
-    const message = saveSiteMessage("order", {
-      name,
-      phone,
-      email: body.email,
-      message: body.comment || `Заказ #${orderId} на сумму ${total} ₽`,
-      items,
-      delivery: buildDeliveryLabel(body),
-      deliveryPrice,
-      payment: buildPaymentLabel(body),
-      goodsTotal,
-      total,
-      orderId,
-    });
-    await notifyTelegram(`Новый заказ #${orderId}`, message);
-    const row = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
-    res.status(201).json(withItems(row));
+    res.json(estimateCheckoutDelivery(db, req.body));
   } catch (error) {
-    res.status(400).json({ message: error.message || "Request failed" });
+    if (error instanceof CheckoutValidationError) return res.status(400).json({ message: error.message });
+    console.error("[Regola] Delivery estimate failed");
+    return res.status(500).json({ message: "Не удалось рассчитать доставку" });
   }
 });
+
+app.post("/api/checkout", createCheckoutHandler({
+  database: db,
+  saveOrderMessage: (payload) => saveSiteMessage("order", payload),
+  notifyTelegram,
+  serializeOrder: withItems,
+}));
 
 app.get("/api/me", authRequired, (req, res) => {
   const user = db.prepare("SELECT id, name, email, phone, address, is_admin FROM users WHERE id = ?").get(req.user.id);
@@ -323,44 +276,11 @@ function normalizeImages(images, image) {
 
 function normalizePrice(value) {
   const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : null;
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
 }
 
 function normalizeUrl(value) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function estimateCdekFallback({ city, qty, goodsTotal }) {
-  const normalizedCity = city.toLowerCase();
-  const isSpb = /санкт|петербург|спб|sankt|spb/.test(normalizedCity);
-  const isMoscow = /москв|moscow/.test(normalizedCity);
-  const base = isSpb ? 250 : isMoscow ? 320 : 420;
-  const deliveryPrice = goodsTotal >= 15000 ? 0 : base + Math.max(0, qty - 1) * 60;
-  return {
-    provider: "CDEK",
-    mode: process.env.CDEK_CLIENT_ID && process.env.CDEK_CLIENT_SECRET ? "api_ready" : "manual_estimate",
-    city,
-    deliveryPrice,
-    minDays: isSpb ? 1 : isMoscow ? 2 : 3,
-    maxDays: isSpb ? 2 : isMoscow ? 4 : 7,
-    tariff: "СДЭК, предварительный расчёт",
-    notice: "Точная стоимость доставки подтверждается менеджером после оформления заказа.",
-  };
-}
-
-function buildDeliveryLabel(body = {}) {
-  const method = String(body.deliveryMethod || body.delivery || "СДЭК").trim();
-  const city = String(body.city || "").trim();
-  const price = Math.max(0, Number(body.deliveryPrice) || 0);
-  return `${method}${city ? `, ${city}` : ""}${price ? `, доставка ${price} ₽` : ""}`;
-}
-
-function buildPaymentLabel(body = {}) {
-  const method = String(body.paymentMethod || body.payment || "Счёт на оплату").trim();
-  if (method === "online") return "Онлайн-оплата после подключения эквайринга";
-  if (method === "invoice") return "Счёт на оплату";
-  if (method === "cod") return "Оплата при получении / по согласованию";
-  return method;
 }
 
 function constantTimeSecretEqual(a, b) {

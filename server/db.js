@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS products (
   wb_url TEXT,
   ym_url TEXT,
   video_url TEXT,
-  images_json TEXT
+  images_json TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -95,6 +96,7 @@ for (const [column, type] of [
   ["ym_url", "TEXT"],
   ["video_url", "TEXT"],
   ["images_json", "TEXT"],
+  ["is_active", "INTEGER NOT NULL DEFAULT 1"],
 ]) {
   if (!productColNames.has(column)) db.exec(`ALTER TABLE products ADD COLUMN ${column} ${type}`);
 }

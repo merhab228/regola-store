@@ -154,8 +154,8 @@ function QuantityPicker({ value, onChange }) {
   return (
     <div className="qty-picker" aria-label="Количество">
       <button type="button" onClick={() => onChange(Math.max(1, value - 1))}>−</button>
-      <input type="number" min="1" value={value} onChange={(e) => onChange(Math.max(1, Number(e.target.value) || 1))} />
-      <button type="button" onClick={() => onChange(value + 1)}>+</button>
+      <input type="number" min="1" max="99" value={value} onChange={(e) => onChange(Math.min(99, Math.max(1, Number(e.target.value) || 1)))} />
+      <button type="button" onClick={() => onChange(Math.min(99, value + 1))}>+</button>
     </div>
   );
 }
@@ -267,7 +267,8 @@ function CartPage() {
   const estimateDelivery = async () => {
     setStatus("");
     try {
-      const estimate = await estimateCdekDelivery({ city: form.city || form.address, items: cartItems, goodsTotal: cartTotal });
+      const items = cartItems.map((item) => ({ productId: item.id, qty: item.qty }));
+      const estimate = await estimateCdekDelivery({ city: form.city, items });
       setDeliveryEstimate(estimate);
     } catch (error) {
       setStatus(error.message);
@@ -281,11 +282,7 @@ function CartPage() {
     try {
       await sendCheckout({
         ...form,
-        deliveryPrice: Number(deliveryEstimate?.deliveryPrice || 0),
-        deliveryEstimate,
-        items: cartItems,
-        goodsTotal: cartTotal,
-        total: orderTotal,
+        items: cartItems.map((item) => ({ productId: item.id, qty: item.qty })),
       });
       clearCart();
       setForm({ name: "", phone: "", email: "", city: "", address: "", deliveryMethod: "СДЭК до ПВЗ", paymentMethod: "invoice", comment: "" });
@@ -549,7 +546,7 @@ function AdminPage() {
       <h2>{form.id ? "Редактирование товара" : "Новый товар"}</h2>
       <form className="form admin-form" onSubmit={submit}>
         <input required placeholder="Название" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input required type="number" min="0" placeholder="Цена, ₽" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+        <input required type="number" min="1" step="1" placeholder="Цена, ₽" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
         <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <textarea required rows="9" placeholder={"Описание. Можно писать абзацы и списки:\n\nПервый абзац\n\n- пункт\n- пункт"} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
 

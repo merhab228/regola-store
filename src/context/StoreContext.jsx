@@ -18,6 +18,7 @@ const load = (key, fallback) => {
 };
 
 const save = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+const MAX_CART_QTY = 99;
 
 export function StoreProvider({ children }) {
   const [products, setProducts] = useState([]);
@@ -140,10 +141,10 @@ export function StoreProvider({ children }) {
   };
 
   const addToCart = (product, qty = 1) => {
-    const count = Math.max(1, Number(qty) || 1);
+    const count = Math.min(MAX_CART_QTY, Math.max(1, Number(qty) || 1));
     setCartItems((prev) => {
       const found = prev.find((item) => item.id === product.id);
-      if (found) return prev.map((item) => (item.id === product.id ? { ...item, qty: item.qty + count } : item));
+      if (found) return prev.map((item) => (item.id === product.id ? { ...item, qty: Math.min(MAX_CART_QTY, item.qty + count) } : item));
       return [
         ...prev,
         {
@@ -159,7 +160,7 @@ export function StoreProvider({ children }) {
   };
 
   const updateCartQty = (id, qty) => {
-    const count = Math.max(1, Number(qty) || 1);
+    const count = Math.min(MAX_CART_QTY, Math.max(1, Number(qty) || 1));
     setCartItems((prev) => prev.map((item) => (item.id === id ? { ...item, qty: count } : item)));
   };
 
