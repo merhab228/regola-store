@@ -567,6 +567,50 @@ textarea:focus {
   cursor: wait;
   opacity: 0.72;
 }
+.suggest-field {
+  position: relative;
+  min-width: 0;
+}
+.suggest-field > input {
+  width: 100%;
+}
+.suggest-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--regola-border);
+  border-radius: 12px;
+  background: var(--regola-card);
+  box-shadow: 0 14px 32px rgba(13, 33, 54, 0.18);
+}
+.suggest-menu button {
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--regola-text);
+  text-align: left;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.suggest-menu button:hover,
+.suggest-menu button:focus-visible {
+  background: var(--regola-soft);
+}
+.suggest-menu button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.suggestion-error {
+  margin: -2px 0 4px;
+  color: var(--regola-error);
+}
 .admin-product-row img {
   width: 54px;
   height: 54px;

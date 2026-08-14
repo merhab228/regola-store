@@ -153,6 +153,10 @@ test("checkout customer fields enforce server-side types and length limits", asy
     { label: "long address", value: { address: "А".repeat(301) } },
     { label: "invalid comment type", value: { comment: ["test"] } },
     { label: "long comment", value: { comment: "А".repeat(2001) } },
+    { label: "fake name", value: { name: "123456" } },
+    { label: "short russian phone", value: { phone: "83838383" } },
+    { label: "fake city", value: { city: "ппп" } },
+    { label: "courier address without house", value: { deliveryMethod: "СДЭК курьером", address: "Тверская улица" } },
   ];
   for (const scenario of invalidBodies) {
     await t.test(scenario.label, () => {

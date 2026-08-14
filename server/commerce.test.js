@@ -62,6 +62,21 @@ test("T-Bank Init receives authoritative kopecks, receipt and signed request", a
   assert.equal(result.amountKopecks, 230000);
 });
 
+test("a DEMO terminal automatically uses the securepay endpoint", async () => {
+  let capturedUrl = "";
+  const client = createTbankClient({ ...tbankEnv, TBANK_TERMINAL_KEY: "1786346307558DEMO" }, {
+    fetchImpl: async (url) => {
+      capturedUrl = url;
+      return jsonResponse({ Success: true, PaymentId: "pay-demo", PaymentURL: "https://securepay.tbank.ru/demo", Status: "NEW" });
+    },
+  });
+  await client.initPayment({
+    order: { id: 8, total: 1000, deliveryPrice: 0, phone: "+79991112233", email: "buyer@example.ru" },
+    items: [{ productId: 1, name: "Ручка Regola", price: 1000, qty: 1 }],
+  });
+  assert.equal(capturedUrl, "https://securepay.tinkoff.ru/v2/Init");
+});
+
 test("T-Bank notification rejects price/payment mismatches and is idempotent", () => {
   const database = new Database(":memory:");
   database.exec(`

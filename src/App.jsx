@@ -249,7 +249,7 @@ function QuestionSection() {
 }
 
 function CartPage() {
-  const { cartItems, updateCartQty, removeFromCart, cartTotal, clearCart, sendCheckout, estimateCdekDelivery, commerce } = useStore();
+  const { cartItems, updateCartQty, removeFromCart, cartTotal, clearCart, sendCheckout, estimateCdekDelivery, suggestAddress, commerce } = useStore();
   const [searchParams] = useSearchParams();
   const [form, setForm] = useState({
     name: "",
@@ -261,11 +261,16 @@ function CartPage() {
     paymentMethod: "invoice",
     cdekCityCode: null,
     deliveryPointCode: "",
+    cityFiasId: "",
+    addressFiasId: "",
     comment: "",
   });
   const [deliveryEstimate, setDeliveryEstimate] = useState(null);
   const [deliveryPoints, setDeliveryPoints] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [citySuggestions, setCitySuggestions] = useState([]);
+  const [addressSuggestions, setAddressSuggestions] = useState([]);
+  const [suggestionError, setSuggestionError] = useState("");
   const paymentResult = searchParams.get("payment");
   const [status, setStatus] = useState(
     paymentResult === "success"
@@ -273,6 +278,42 @@ function CartPage() {
       : paymentResult === "fail" ? "Оплата не завершена. Свяжитесь с нами или оформите заказ повторно." : ""
   );
   const orderTotal = cartTotal + Number(deliveryEstimate?.deliveryPrice || 0);
+
+  useEffect(() => {
+    setCitySuggestions([]);
+    if (!commerce.addressSuggestionsEnabled || form.cityFiasId || form.city.trim().length < 2) return undefined;
+    let active = true;
+    const timer = setTimeout(async () => {
+      try {
+        const suggestions = await suggestAddress({ kind: "city", query: form.city });
+        if (active) {
+          setCitySuggestions(suggestions);
+          setSuggestionError(suggestions.length ? "" : "Город не найден. Уточните название.");
+        }
+      } catch (error) {
+        if (active) setSuggestionError(error.message);
+      }
+    }, 350);
+    return () => { active = false; clearTimeout(timer); };
+  }, [commerce.addressSuggestionsEnabled, form.city, form.cityFiasId, suggestAddress]);
+
+  useEffect(() => {
+    setAddressSuggestions([]);
+    if (!commerce.addressSuggestionsEnabled || !form.cityFiasId || form.addressFiasId || form.address.trim().length < 2) return undefined;
+    let active = true;
+    const timer = setTimeout(async () => {
+      try {
+        const suggestions = await suggestAddress({ kind: "address", query: form.address, cityFiasId: form.cityFiasId });
+        if (active) {
+          setAddressSuggestions(suggestions);
+          setSuggestionError(suggestions.length ? "" : "Адрес не найден. Укажите улицу и дом.");
+        }
+      } catch (error) {
+        if (active) setSuggestionError(error.message);
+      }
+    }, 350);
+    return () => { active = false; clearTimeout(timer); };
+  }, [commerce.addressSuggestionsEnabled, form.address, form.addressFiasId, form.cityFiasId, suggestAddress]);
 
   const estimateDelivery = async () => {
     setStatus("");
@@ -302,6 +343,14 @@ function CartPage() {
       setStatus("Онлайн-оплата ещё не подключена. Выберите счёт или оплату при получении.");
       return;
     }
+    if (commerce.addressSuggestionsEnabled && !form.cityFiasId) {
+      setStatus("Выберите город из выпадающего списка подсказок.");
+      return;
+    }
+    if (commerce.addressSuggestionsEnabled && form.deliveryMethod !== "СДЭК до ПВЗ" && !form.addressFiasId) {
+      setStatus("Выберите полный адрес с номером дома из выпадающего списка.");
+      return;
+    }
     if (commerce.cdekApiEnabled && form.deliveryMethod === "СДЭК до ПВЗ" && !form.deliveryPointCode) {
       setStatus("Рассчитайте доставку и выберите пункт выдачи СДЭК.");
       return;
@@ -313,7 +362,7 @@ function CartPage() {
         items: cartItems.map((item) => ({ productId: item.id, qty: item.qty })),
       });
       clearCart();
-      setForm({ name: "", phone: "", email: "", city: "", address: "", deliveryMethod: "СДЭК до ПВЗ", paymentMethod: "invoice", cdekCityCode: null, deliveryPointCode: "", comment: "" });
+      setForm({ name: "", phone: "", email: "", city: "", address: "", deliveryMethod: "СДЭК до ПВЗ", paymentMethod: "invoice", cdekCityCode: null, deliveryPointCode: "", cityFiasId: "", addressFiasId: "", comment: "" });
       setDeliveryEstimate(null);
       setDeliveryPoints([]);
       if (order.paymentUrl) {
@@ -373,12 +422,23 @@ function CartPage() {
           <form className="form checkout-form" onSubmit={submit} onInvalid={showValidationError}>
             <h2>Оформление заказа</h2>
             <p>Стоимость заказа рассчитывается сервером. Онлайн-оплата проходит на защищённой форме T-Банка, доставка — через СДЭК.</p>
-            <input required placeholder="Ваше имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <input required placeholder="Телефон" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input required autoComplete="name" placeholder="Ваше имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input required type="tel" inputMode="tel" autoComplete="tel" placeholder="Телефон: +7 999 123-45-67" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            <input type="email" autoComplete="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <div className="checkout-grid">
-              <input required placeholder="Город доставки" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-              <select value={form.deliveryMethod} onChange={(e) => { setForm({ ...form, deliveryMethod: e.target.value, cdekCityCode: null, deliveryPointCode: "" }); setDeliveryEstimate(null); setDeliveryPoints([]); }}>
+              <div className="suggest-field">
+                <input required autoComplete="off" placeholder="Начните вводить город" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value, cityFiasId: "", address: "", addressFiasId: "", cdekCityCode: null, deliveryPointCode: "" })} />
+                {citySuggestions.length > 0 && (
+                  <div className="suggest-menu" role="listbox">
+                    {citySuggestions.map((item) => (
+                      <button key={item.fiasId} type="button" onClick={() => { setForm({ ...form, city: item.value, cityFiasId: item.fiasId, address: "", addressFiasId: "", cdekCityCode: null, deliveryPointCode: "" }); setCitySuggestions([]); setSuggestionError(""); }}>
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <select value={form.deliveryMethod} onChange={(e) => { setForm({ ...form, deliveryMethod: e.target.value, address: "", addressFiasId: "", cdekCityCode: null, deliveryPointCode: "" }); setDeliveryEstimate(null); setDeliveryPoints([]); }}>
                 <option>СДЭК до ПВЗ</option>
                 <option>СДЭК курьером</option>
                 <option>Почта России</option>
@@ -390,7 +450,21 @@ function CartPage() {
                 {deliveryPoints.map((point) => <option key={point.code} value={point.code}>{point.address || point.name}</option>)}
               </select>
             )}
-            <input required={form.deliveryMethod === "СДЭК курьером"} placeholder="Адрес или желаемый ПВЗ" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            {form.deliveryMethod !== "СДЭК до ПВЗ" && (
+              <div className="suggest-field">
+                <input required autoComplete="street-address" placeholder="Начните вводить улицу и дом" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value, addressFiasId: "" })} />
+                {addressSuggestions.length > 0 && (
+                  <div className="suggest-menu" role="listbox">
+                    {addressSuggestions.map((item) => (
+                      <button key={`${item.fiasId}-${item.value}`} type="button" disabled={!item.hasHouse} onClick={() => { setForm({ ...form, address: item.value, addressFiasId: item.fiasId }); setAddressSuggestions([]); setSuggestionError(""); }}>
+                        {item.label}{item.hasHouse ? "" : " — укажите дом"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            {commerce.addressSuggestionsEnabled && suggestionError && <p className="form-hint suggestion-error">{suggestionError}</p>}
             <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
               <option value="invoice">Счёт на оплату</option>
               <option value="online" disabled={!commerce.tbankEnabled}>Онлайн-оплата через T-Банк{commerce.tbankEnabled ? "" : " — подключается"}</option>

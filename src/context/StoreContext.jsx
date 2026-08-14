@@ -25,7 +25,7 @@ export function StoreProvider({ children }) {
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
   const [messages, setMessages] = useState([]);
-  const [commerce, setCommerce] = useState({ tbankEnabled: false, cdekApiEnabled: false, cdekOrderCreationEnabled: false });
+  const [commerce, setCommerce] = useState({ tbankEnabled: false, cdekApiEnabled: false, cdekOrderCreationEnabled: false, addressSuggestionsEnabled: false });
   const [cartItems, setCartItems] = useState(() => load(STORAGE_KEYS.cart, []));
   const [token, setToken] = useState(() => load(STORAGE_KEYS.token, null));
   const [user, setUser] = useState(null);
@@ -190,12 +190,18 @@ export function StoreProvider({ children }) {
   const sendCheckout = async (payload) => api("/api/checkout", {
     method: "POST",
     body: JSON.stringify(payload),
-    timeoutMs: 25_000,
+    timeoutMs: 45_000,
   });
 
   const estimateCdekDelivery = async (payload) => api("/api/cdek/estimate", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+
+  const suggestAddress = async (payload) => api("/api/address/suggest", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    timeoutMs: 10_000,
   });
 
   return (
@@ -216,6 +222,7 @@ export function StoreProvider({ children }) {
         clearCart,
         sendCheckout,
         estimateCdekDelivery,
+        suggestAddress,
         upsertProduct,
         deleteProduct,
         updateOrderStatus,

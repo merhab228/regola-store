@@ -107,9 +107,11 @@ export function processTbankNotification({ database, client, payload }) {
 
 function readConfig(env) {
   const mode = String(env.TBANK_MODE || "test").trim().toLowerCase() === "production" ? "production" : "test";
-  const apiUrl = String(env.TBANK_API_URL || (mode === "production" ? TBANK_PRODUCTION_URL : TBANK_TEST_URL)).replace(/\/$/, "");
   const publicBaseUrl = String(env.PUBLIC_BASE_URL || "https://regola.shop").replace(/\/$/, "");
   const terminalKey = String(env.TBANK_TERMINAL_KEY || "").trim();
+  const demoTerminal = /DEMO$/i.test(terminalKey);
+  const defaultApiUrl = mode === "production" || demoTerminal ? TBANK_PRODUCTION_URL : TBANK_TEST_URL;
+  const apiUrl = String(env.TBANK_API_URL || defaultApiUrl).replace(/\/$/, "");
   const password = String(env.TBANK_PASSWORD || "").trim();
   const taxation = String(env.TBANK_TAXATION || "").trim();
   const itemTax = String(env.TBANK_ITEM_TAX || "").trim();
@@ -211,24 +213,28 @@ function timingSafeEqual(a, b) {
 }
 
 async function postJson(url, body, fetchImpl) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
-  try {
-    const response = await fetchImpl(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new TbankError(`T-Банк ответил кодом ${response.status}`, "HTTP_ERROR");
-    return data;
-  } catch (error) {
-    if (error instanceof TbankError) throw error;
-    throw new TbankError("Не удалось связаться с T-Банком", "NETWORK_ERROR");
-  } finally {
-    clearTimeout(timeout);
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+    try {
+      const response = await fetchImpl(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new TbankError(`T-Банк ответил кодом ${response.status}`, "HTTP_ERROR");
+      return data;
+    } catch (error) {
+      if (error instanceof TbankError) throw error;
+      if (attempt === 2) throw new TbankError("Не удалось связаться с T-Банком", "NETWORK_ERROR");
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+  throw new TbankError("Не удалось связаться с T-Банком", "NETWORK_ERROR");
 }
 
 function safeProviderMessage(response) {

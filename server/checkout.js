@@ -9,6 +9,7 @@ const CUSTOMER_LIMITS = Object.freeze({
   address: 300,
   comment: 2000,
   deliveryPointCode: 30,
+  fiasId: 36,
 });
 
 const DELIVERY_METHODS = new Set(["СДЭК до ПВЗ", "СДЭК курьером", "Почта России"]);
@@ -60,11 +61,16 @@ export function validateCheckoutCustomer(body) {
   }
 
   const name = requiredText(body.name, "Имя", 2, CUSTOMER_LIMITS.name);
+  const nameLetters = name.match(/\p{L}/gu) || [];
+  if (!/^[\p{L}\p{M}][\p{L}\p{M}\s'.-]*$/u.test(name) || nameLetters.length < 2) {
+    throw new CheckoutValidationError("Укажите настоящее имя буквами");
+  }
   const phone = requiredText(body.phone, "Телефон", 7, CUSTOMER_LIMITS.phone);
   const phoneDigits = phone.replace(/\D/g, "");
-  if (!/^[+0-9()\-\.\s]+$/.test(phone) || phoneDigits.length < 7 || phoneDigits.length > 15) {
-    throw new CheckoutValidationError("Укажите корректный телефон");
+  if (!/^[+0-9()\-\.\s]+$/.test(phone) || phoneDigits.length !== 11 || !/^[78]/.test(phoneDigits)) {
+    throw new CheckoutValidationError("Укажите российский телефон из 11 цифр");
   }
+  const normalizedPhone = `+7${phoneDigits.slice(1)}`;
 
   const email = optionalText(body.email, "Email", CUSTOMER_LIMITS.email);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -72,10 +78,16 @@ export function validateCheckoutCustomer(body) {
   }
 
   const city = requiredText(body.city, "Город", 2, CUSTOMER_LIMITS.city);
+  const cityLetters = city.match(/\p{L}/gu) || [];
+  if (!/^[\p{L}\p{M}][\p{L}\p{M}\s().-]*$/u.test(city) || cityLetters.length < 3 || new Set(cityLetters.map((letter) => letter.toLowerCase())).size < 2) {
+    throw new CheckoutValidationError("Укажите корректный город");
+  }
   const address = optionalText(body.address, "Адрес", CUSTOMER_LIMITS.address);
   const comment = optionalText(body.comment, "Комментарий", CUSTOMER_LIMITS.comment);
   const deliveryPointCode = optionalText(body.deliveryPointCode, "Код ПВЗ", CUSTOMER_LIMITS.deliveryPointCode);
   const cdekCityCode = optionalPositiveInteger(body.cdekCityCode, "Код города СДЭК");
+  const cityFiasId = optionalFiasId(body.cityFiasId, "ФИАС города");
+  const addressFiasId = optionalFiasId(body.addressFiasId, "ФИАС адреса");
   const deliveryMethod = requiredText(body.deliveryMethod, "Способ доставки", 2, 80);
   const paymentMethod = requiredText(body.paymentMethod, "Способ оплаты", 2, 40);
 
@@ -88,8 +100,17 @@ export function validateCheckoutCustomer(body) {
   if (deliveryMethod === "СДЭК курьером" && !address) {
     throw new CheckoutValidationError("Для курьерской доставки укажите адрес");
   }
+  if (deliveryMethod === "Почта России" && !address) {
+    throw new CheckoutValidationError("Для доставки Почтой России укажите адрес");
+  }
+  if (address && !/[\p{L}]/u.test(address)) {
+    throw new CheckoutValidationError("Укажите корректный адрес");
+  }
+  if (deliveryMethod !== "СДЭК до ПВЗ" && address && !/\d/u.test(address)) {
+    throw new CheckoutValidationError("В адресе должен быть указан номер дома");
+  }
 
-  return { name, phone, email, city, address, comment, deliveryMethod, paymentMethod, deliveryPointCode, cdekCityCode };
+  return { name, phone: normalizedPhone, email, city, address, comment, deliveryMethod, paymentMethod, deliveryPointCode, cdekCityCode, cityFiasId, addressFiasId };
 }
 
 export function loadAuthoritativeCart(database, requestedItems) {
@@ -269,6 +290,7 @@ export function createCheckoutHandler({
   serializeOrder,
   resolveDelivery,
   initializePayment,
+  validateLocation,
   logger = console,
 }) {
   return async function checkoutHandler(req, res) {
@@ -278,6 +300,7 @@ export function createCheckoutHandler({
       let deliveryEstimate;
       if (resolveDelivery) {
         const customer = validateCheckoutCustomer(req.body);
+        if (validateLocation) await validateLocation(customer);
         const requestedItems = normalizeCheckoutItems(req.body?.items);
         const cart = loadAuthoritativeCart(database, requestedItems);
         deliveryEstimate = await resolveDelivery({ customer, cart });
@@ -360,6 +383,15 @@ function optionalPositiveInteger(value, label) {
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isSafeInteger(number) || number <= 0) throw new CheckoutValidationError(`${label}: неверное значение`);
   return number;
+}
+
+function optionalFiasId(value, label) {
+  if (value === undefined || value === null || value === "") return "";
+  const text = optionalText(value, label, CUSTOMER_LIMITS.fiasId);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text)) {
+    throw new CheckoutValidationError(`${label}: неверное значение`);
+  }
+  return text;
 }
 
 function normalizeDeliveryEstimate(estimate) {

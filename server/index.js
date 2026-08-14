@@ -12,6 +12,7 @@ import { mapProduct } from "./mapProduct.js";
 import { CheckoutValidationError, createCheckoutHandler, estimateDelivery, prepareDeliveryQuote } from "./checkout.js";
 import { createTbankClient, processTbankNotification } from "./tbank.js";
 import { createCdekClient } from "./cdek.js";
+import { createDadataClient, DadataError } from "./dadata.js";
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,8 @@ const adminLoginAttempts = new Map();
 const BCRYPT_DUMMY = "$2a$12$YyuILP8godldZ3CATSqf7.ZsfJwijqh98kxF.8qSNDQQXjNbl.zHu";
 const tbankClient = createTbankClient();
 const cdekClient = createCdekClient();
+const dadataClient = createDadataClient();
+const addressSuggestLimits = new Map();
 
 try {
   seedIfNeeded();
@@ -53,7 +56,24 @@ app.get("/api/commerce/config", (_, res) => {
     cdekApiEnabled: cdekClient.isConfigured,
     cdekMode: cdekClient.config.mode,
     cdekOrderCreationEnabled: cdekClient.canCreateOrders,
+    addressSuggestionsEnabled: dadataClient.isConfigured,
   });
+});
+
+app.post("/api/address/suggest", async (req, res) => {
+  if (!dadataClient.isConfigured) return res.status(503).json({ message: "Подсказки адресов ещё не настроены" });
+  if (!allowAddressSuggestion(req)) return res.status(429).json({ message: "Слишком много запросов. Подождите минуту." });
+  try {
+    const suggestions = await dadataClient.suggest({
+      kind: req.body?.kind,
+      query: req.body?.query,
+      cityFiasId: req.body?.cityFiasId,
+    });
+    return res.json(suggestions);
+  } catch (error) {
+    const status = error instanceof DadataError && ["INVALID_KIND", "CITY_REQUIRED"].includes(error.code) ? 400 : 502;
+    return res.status(status).json({ message: error.message || "Не удалось получить подсказки" });
+  }
 });
 
 app.get("/api/categories", (_, res) => {
@@ -157,6 +177,14 @@ app.post("/api/checkout", createCheckoutHandler({
       })
   ),
   initializePayment: ({ order, items }) => tbankClient.initPayment({ order, items }),
+  validateLocation: dadataClient.isConfigured
+    ? (customer) => {
+      if (!customer.cityFiasId) throw new CheckoutValidationError("Выберите город из списка подсказок");
+      if (customer.deliveryMethod !== "СДЭК до ПВЗ" && !customer.addressFiasId) {
+        throw new CheckoutValidationError("Выберите полный адрес с домом из списка подсказок");
+      }
+    }
+    : undefined,
 }));
 
 app.post("/api/payments/tbank/notification", (req, res) => {
@@ -398,6 +426,23 @@ function adminClientIp(req) {
   const xf = req.headers["x-forwarded-for"];
   if (typeof xf === "string" && xf.length > 0) return xf.split(",")[0].trim().slice(0, 64) || "unknown";
   return req.ip || req.socket.remoteAddress || "unknown";
+}
+
+function allowAddressSuggestion(req) {
+  const ip = adminClientIp(req);
+  const now = Date.now();
+  const current = addressSuggestLimits.get(ip);
+  if (!current || now - current.startedAt >= 60_000) {
+    addressSuggestLimits.set(ip, { startedAt: now, count: 1 });
+    return true;
+  }
+  current.count += 1;
+  if (addressSuggestLimits.size > 5_000) {
+    for (const [key, value] of addressSuggestLimits) {
+      if (now - value.startedAt >= 60_000) addressSuggestLimits.delete(key);
+    }
+  }
+  return current.count <= 90;
 }
 
 function adminBumpAttempt(ip, attempt) {
