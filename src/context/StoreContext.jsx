@@ -25,12 +25,14 @@ export function StoreProvider({ children }) {
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [commerce, setCommerce] = useState({ tbankEnabled: false, cdekApiEnabled: false, cdekOrderCreationEnabled: false });
   const [cartItems, setCartItems] = useState(() => load(STORAGE_KEYS.cart, []));
   const [token, setToken] = useState(() => load(STORAGE_KEYS.token, null));
   const [user, setUser] = useState(null);
 
   useEffect(() => {
     fetch("/api/categories").then((r) => r.json()).then(setCategories).catch(() => {});
+    fetch("/api/commerce/config").then((r) => r.json()).then(setCommerce).catch(() => {});
     fetchProducts({ categoryId: 1 });
   }, []);
 
@@ -131,6 +133,20 @@ export function StoreProvider({ children }) {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? nextOrder : o)));
   };
 
+  const createCdekShipment = async (orderId) => {
+    if (!token) return;
+    const nextOrder = await authedApi("/api/admin/orders/" + orderId + "/cdek", { method: "POST" });
+    setOrders((prev) => prev.map((order) => (order.id === orderId ? nextOrder : order)));
+    return nextOrder;
+  };
+
+  const refreshCdekShipment = async (orderId) => {
+    if (!token) return;
+    const nextOrder = await authedApi("/api/admin/orders/" + orderId + "/cdek/refresh", { method: "POST" });
+    setOrders((prev) => prev.map((order) => (order.id === orderId ? nextOrder : order)));
+    return nextOrder;
+  };
+
   const updateMessage = async (messageId, payload) => {
     if (!token) return;
     const nextMessage = await authedApi("/api/admin/messages/" + messageId, {
@@ -165,7 +181,10 @@ export function StoreProvider({ children }) {
   };
 
   const removeFromCart = (id) => setCartItems((prev) => prev.filter((item) => item.id !== id));
-  const clearCart = () => setCartItems([]);
+  const clearCart = () => {
+    setCartItems([]);
+    save(STORAGE_KEYS.cart, []);
+  };
   const cartTotal = cartItems.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
 
   const sendCheckout = async (payload) => api("/api/checkout", {
@@ -185,6 +204,7 @@ export function StoreProvider({ children }) {
         products,
         orders,
         messages,
+        commerce,
         cartItems,
         cartTotal,
         user,
@@ -198,6 +218,8 @@ export function StoreProvider({ children }) {
         upsertProduct,
         deleteProduct,
         updateOrderStatus,
+        createCdekShipment,
+        refreshCdekShipment,
         updateMessage,
         grantAdminAccess,
         isAdminSessionValid: !!user?.isAdmin,

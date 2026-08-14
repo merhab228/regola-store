@@ -9,7 +9,9 @@ import db from "./db.js";
 import { seedIfNeeded } from "./seed.js";
 import { adminRequired, authRequired, signToken } from "./middleware/auth.js";
 import { mapProduct } from "./mapProduct.js";
-import { CheckoutValidationError, createCheckoutHandler, estimateCheckoutDelivery } from "./checkout.js";
+import { CheckoutValidationError, createCheckoutHandler, estimateDelivery, prepareDeliveryQuote } from "./checkout.js";
+import { createTbankClient, processTbankNotification } from "./tbank.js";
+import { createCdekClient } from "./cdek.js";
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +25,8 @@ const ADMIN_MAX_ATTEMPTS = 5;
 const ADMIN_WINDOW_MS = 15 * 60 * 1000;
 const adminLoginAttempts = new Map();
 const BCRYPT_DUMMY = "$2a$12$YyuILP8godldZ3CATSqf7.ZsfJwijqh98kxF.8qSNDQQXjNbl.zHu";
+const tbankClient = createTbankClient();
+const cdekClient = createCdekClient();
 
 try {
   seedIfNeeded();
@@ -38,8 +42,19 @@ if (ADMIN_ACCESS_KEY === "change-me" && process.env.NODE_ENV === "production") {
 
 app.use(cors());
 app.use(express.json({ limit: "35mb" }));
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
 app.get("/api/health", (_, res) => res.json({ ok: true }));
+
+app.get("/api/commerce/config", (_, res) => {
+  res.json({
+    tbankEnabled: tbankClient.isConfigured,
+    tbankMode: tbankClient.config.mode,
+    cdekApiEnabled: cdekClient.isConfigured,
+    cdekMode: cdekClient.config.mode,
+    cdekOrderCreationEnabled: cdekClient.canCreateOrders,
+  });
+});
 
 app.get("/api/categories", (_, res) => {
   const rows = db.prepare("SELECT id, name FROM categories ORDER BY id ASC").all();
@@ -87,13 +102,37 @@ app.post("/api/contact", async (req, res) => {
   }
 });
 
-app.post("/api/cdek/estimate", (req, res) => {
+app.post("/api/cdek/estimate", async (req, res) => {
   try {
-    res.json(estimateCheckoutDelivery(db, req.body));
+    const quote = prepareDeliveryQuote(db, req.body);
+    const estimate = cdekClient.isConfigured && quote.deliveryMethod.startsWith("СДЭК")
+      ? await cdekClient.estimate({
+        city: quote.city,
+        cityCode: quote.cityCode,
+        deliveryMethod: quote.deliveryMethod,
+        totalQty: quote.cart.totalQty,
+      })
+      : estimateDelivery({
+        city: quote.city,
+        totalQty: quote.cart.totalQty,
+        goodsTotal: quote.cart.goodsTotal,
+        deliveryMethod: quote.deliveryMethod,
+      });
+    res.json(estimate);
   } catch (error) {
     if (error instanceof CheckoutValidationError) return res.status(400).json({ message: error.message });
     console.error("[Regola] Delivery estimate failed");
     return res.status(500).json({ message: "Не удалось рассчитать доставку" });
+  }
+});
+
+app.get("/api/cdek/delivery-points", async (req, res) => {
+  try {
+    if (!cdekClient.isConfigured) return res.json([]);
+    const points = await cdekClient.deliveryPoints({ city: req.query.city, cityCode: req.query.cityCode });
+    res.json(points);
+  } catch (error) {
+    res.status(502).json({ message: error.message || "Не удалось загрузить ПВЗ СДЭК" });
   }
 });
 
@@ -102,7 +141,28 @@ app.post("/api/checkout", createCheckoutHandler({
   saveOrderMessage: (payload) => saveSiteMessage("order", payload),
   notifyTelegram,
   serializeOrder: withItems,
+  resolveDelivery: async ({ customer, cart }) => (
+    cdekClient.isConfigured && customer.deliveryMethod.startsWith("СДЭК")
+      ? cdekClient.estimate({
+        city: customer.city,
+        cityCode: customer.cdekCityCode,
+        deliveryMethod: customer.deliveryMethod,
+        totalQty: cart.totalQty,
+      })
+      : estimateDelivery({
+        city: customer.city,
+        totalQty: cart.totalQty,
+        goodsTotal: cart.goodsTotal,
+        deliveryMethod: customer.deliveryMethod,
+      })
+  ),
+  initializePayment: ({ order, items }) => tbankClient.initPayment({ order, items }),
 }));
+
+app.post("/api/payments/tbank/notification", (req, res) => {
+  const result = processTbankNotification({ database: db, client: tbankClient, payload: req.body });
+  return res.status(result.statusCode).type("text/plain").send(result.body);
+});
 
 app.get("/api/me", authRequired, (req, res) => {
   const user = db.prepare("SELECT id, name, email, phone, address, is_admin FROM users WHERE id = ?").get(req.user.id);
@@ -166,6 +226,51 @@ app.patch("/api/admin/orders/:id/status", authRequired, adminRequired, (req, res
   db.prepare("UPDATE orders SET status = ? WHERE id = ?").run(status, Number(req.params.id));
   const row = db.prepare("SELECT * FROM orders WHERE id = ?").get(Number(req.params.id));
   res.json(withItems(row));
+});
+
+app.post("/api/admin/orders/:id/cdek", authRequired, adminRequired, async (req, res) => {
+  const orderId = Number(req.params.id);
+  const row = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
+  if (!row) return res.status(404).json({ message: "Заказ не найден" });
+  if (row.cdek_uuid) return res.json(withItems(row));
+  if (!String(row.delivery_method || "").startsWith("СДЭК")) {
+    return res.status(400).json({ message: "Для заказа не выбрана доставка СДЭК" });
+  }
+  if (row.payment_method === "online" && row.payment_status !== "paid") {
+    return res.status(409).json({ message: "Сначала дождитесь подтверждения оплаты T-Банка" });
+  }
+  try {
+    const order = withItems(row);
+    const shipment = await cdekClient.createOrder({ order, items: order.items });
+    db.prepare(`
+      UPDATE orders SET cdek_status = ?, cdek_uuid = ?, cdek_number = ?, cdek_tariff_code = ? WHERE id = ?
+    `).run(shipment.status, shipment.uuid, shipment.cdekNumber, shipment.tariffCode, orderId);
+    return res.json(withItems(db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId)));
+  } catch (error) {
+    console.warn(`[Regola] CDEK order creation failed for order ${orderId}`);
+    return res.status(502).json({ message: error.message || "СДЭК не принял отправление" });
+  }
+});
+
+app.post("/api/admin/orders/:id/cdek/refresh", authRequired, adminRequired, async (req, res) => {
+  const orderId = Number(req.params.id);
+  const row = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
+  if (!row) return res.status(404).json({ message: "Заказ не найден" });
+  if (!row.cdek_uuid) return res.status(400).json({ message: "Отправление СДЭК ещё не создано" });
+  try {
+    const shipment = await cdekClient.orderStatus(row.cdek_uuid);
+    const codCollected = row.payment_method === "cod" && shipment.status === "delivered";
+    db.prepare(`
+      UPDATE orders
+      SET cdek_status = ?, cdek_number = COALESCE(NULLIF(?, ''), cdek_number),
+          payment_status = CASE WHEN ? THEN 'cod_collected' ELSE payment_status END
+      WHERE id = ?
+    `).run(shipment.status, shipment.cdekNumber, codCollected ? 1 : 0, orderId);
+    return res.json(withItems(db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId)));
+  } catch (error) {
+    console.warn(`[Regola] CDEK status refresh failed for order ${orderId}`);
+    return res.status(502).json({ message: error.message || "Не удалось обновить статус СДЭК" });
+  }
 });
 
 app.get("/api/admin/messages", authRequired, adminRequired, (_, res) => {
@@ -364,9 +469,27 @@ function withItems(order) {
     status: order.status,
     name: order.name,
     phone: order.phone,
+    email: order.email || "",
+    city: order.city || "",
     address: order.address,
+    comment: order.comment || "",
     delivery: order.delivery,
+    deliveryMethod: order.delivery_method || "",
+    deliveryPrice: order.delivery_price || 0,
+    goodsTotal: order.goods_total || 0,
     payment: order.payment,
+    paymentMethod: order.payment_method || "",
+    paymentStatus: order.payment_status || "pending",
+    paymentProvider: order.payment_provider || "",
+    paymentId: order.payment_id || "",
+    paymentUrl: order.payment_url || "",
+    paymentAmountKopecks: order.payment_amount_kopecks || 0,
+    cdekStatus: order.cdek_status || "",
+    cdekUuid: order.cdek_uuid || "",
+    cdekNumber: order.cdek_number || "",
+    cdekTariffCode: order.cdek_tariff_code || null,
+    cdekCityCode: order.cdek_city_code || null,
+    cdekDeliveryPoint: order.cdek_delivery_point || "",
     total: order.total,
     createdAt: order.created_at,
     items,

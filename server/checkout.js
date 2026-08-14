@@ -8,6 +8,7 @@ const CUSTOMER_LIMITS = Object.freeze({
   city: 120,
   address: 300,
   comment: 2000,
+  deliveryPointCode: 30,
 });
 
 const DELIVERY_METHODS = new Set(["СДЭК до ПВЗ", "СДЭК курьером", "Почта России"]);
@@ -73,6 +74,8 @@ export function validateCheckoutCustomer(body) {
   const city = requiredText(body.city, "Город", 2, CUSTOMER_LIMITS.city);
   const address = optionalText(body.address, "Адрес", CUSTOMER_LIMITS.address);
   const comment = optionalText(body.comment, "Комментарий", CUSTOMER_LIMITS.comment);
+  const deliveryPointCode = optionalText(body.deliveryPointCode, "Код ПВЗ", CUSTOMER_LIMITS.deliveryPointCode);
+  const cdekCityCode = optionalPositiveInteger(body.cdekCityCode, "Код города СДЭК");
   const deliveryMethod = requiredText(body.deliveryMethod, "Способ доставки", 2, 80);
   const paymentMethod = requiredText(body.paymentMethod, "Способ оплаты", 2, 40);
 
@@ -82,8 +85,11 @@ export function validateCheckoutCustomer(body) {
   if (!PAYMENT_METHODS.has(paymentMethod)) {
     throw new CheckoutValidationError("Некорректный способ оплаты");
   }
+  if (deliveryMethod === "СДЭК курьером" && !address) {
+    throw new CheckoutValidationError("Для курьерской доставки укажите адрес");
+  }
 
-  return { name, phone, email, city, address, comment, deliveryMethod, paymentMethod };
+  return { name, phone, email, city, address, comment, deliveryMethod, paymentMethod, deliveryPointCode, cdekCityCode };
 }
 
 export function loadAuthoritativeCart(database, requestedItems) {
@@ -124,46 +130,91 @@ export function loadAuthoritativeCart(database, requestedItems) {
   return { items, goodsTotal, totalQty };
 }
 
-export function estimateDelivery({ city, totalQty, goodsTotal }) {
+export function estimateDelivery({ city, totalQty, goodsTotal, deliveryMethod = "СДЭК до ПВЗ" }) {
   const normalizedCity = city.toLowerCase();
   const isSpb = /санкт|петербург|спб|sankt|spb/.test(normalizedCity);
   const isMoscow = /москв|moscow/.test(normalizedCity);
   const base = isSpb ? 250 : isMoscow ? 320 : 420;
   const deliveryPrice = goodsTotal >= 15000 ? 0 : safeMoneyAdd(base, Math.max(0, totalQty - 1) * 60);
   return {
-    provider: "CDEK",
-    mode: process.env.CDEK_CLIENT_ID && process.env.CDEK_CLIENT_SECRET ? "api_ready" : "manual_estimate",
+    provider: deliveryMethod.startsWith("СДЭК") ? "CDEK" : "manual",
+    mode: "manual_estimate",
     city,
     deliveryPrice,
     minDays: isSpb ? 1 : isMoscow ? 2 : 3,
     maxDays: isSpb ? 2 : isMoscow ? 4 : 7,
-    tariff: "СДЭК, предварительный расчёт",
+    tariff: `${deliveryMethod}, предварительный расчёт`,
     notice: "Точная стоимость доставки подтверждается менеджером после оформления заказа.",
   };
 }
 
 export function estimateCheckoutDelivery(database, body) {
-  const city = requiredText(body?.city, "Город", 2, CUSTOMER_LIMITS.city);
-  const requestedItems = normalizeCheckoutItems(body?.items);
-  const cart = loadAuthoritativeCart(database, requestedItems);
-  return estimateDelivery({ city, totalQty: cart.totalQty, goodsTotal: cart.goodsTotal });
+  const quote = prepareDeliveryQuote(database, body);
+  return estimateDelivery({
+    city: quote.city,
+    totalQty: quote.cart.totalQty,
+    goodsTotal: quote.cart.goodsTotal,
+    deliveryMethod: quote.deliveryMethod,
+  });
 }
 
-export function createCheckoutRecord(database, body, { saveOrderMessage, now = () => new Date().toISOString() } = {}) {
+export function prepareDeliveryQuote(database, body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new CheckoutValidationError("Некорректные данные доставки");
+  }
+  const city = requiredText(body.city, "Город", 2, CUSTOMER_LIMITS.city);
+  const deliveryMethod = typeof body.deliveryMethod === "string" && body.deliveryMethod.trim()
+    ? body.deliveryMethod.trim()
+    : "СДЭК до ПВЗ";
+  if (!DELIVERY_METHODS.has(deliveryMethod)) throw new CheckoutValidationError("Некорректный способ доставки");
+  const cityCode = optionalPositiveInteger(body.cdekCityCode, "Код города СДЭК");
+  const requestedItems = normalizeCheckoutItems(body.items);
+  const cart = loadAuthoritativeCart(database, requestedItems);
+  return { city, cityCode, deliveryMethod, cart };
+}
+
+export function createCheckoutRecord(database, body, { saveOrderMessage, deliveryEstimate, now = () => new Date().toISOString() } = {}) {
   const customer = validateCheckoutCustomer(body);
   const requestedItems = normalizeCheckoutItems(body.items);
 
   const persist = database.transaction(() => {
     const cart = loadAuthoritativeCart(database, requestedItems);
-    const estimate = estimateDelivery({ city: customer.city, totalQty: cart.totalQty, goodsTotal: cart.goodsTotal });
+    const estimate = deliveryEstimate
+      ? normalizeDeliveryEstimate(deliveryEstimate)
+      : estimateDelivery({
+        city: customer.city,
+        totalQty: cart.totalQty,
+        goodsTotal: cart.goodsTotal,
+        deliveryMethod: customer.deliveryMethod,
+      });
+    if (
+      customer.deliveryMethod === "СДЭК до ПВЗ"
+      && estimate.mode !== "manual_estimate"
+      && !customer.deliveryPointCode
+    ) {
+      throw new CheckoutValidationError("Выберите пункт выдачи СДЭК");
+    }
     const total = safeMoneyAdd(cart.goodsTotal, estimate.deliveryPrice);
     const createdAt = now();
     const delivery = buildDeliveryLabel(customer, estimate.deliveryPrice);
     const payment = buildPaymentLabel(customer.paymentMethod);
+    const paymentMeta = initialPaymentMeta(customer.paymentMethod);
     const result = database.prepare(`
-      INSERT INTO orders (user_id, status, name, phone, address, delivery, payment, total, created_at)
-      VALUES (0, 'обрабатывается', ?, ?, ?, ?, ?, ?, ?)
-    `).run(customer.name, customer.phone, customer.address, delivery, payment, total, createdAt);
+      INSERT INTO orders (
+        user_id, status, name, phone, email, city, address, comment,
+        delivery, delivery_method, delivery_price, goods_total,
+        payment, payment_method, payment_status, payment_provider,
+        cdek_tariff_code, cdek_city_code, cdek_delivery_point,
+        total, created_at
+      )
+      VALUES (0, 'обрабатывается', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      customer.name, customer.phone, customer.email, customer.city, customer.address, customer.comment,
+      delivery, customer.deliveryMethod, estimate.deliveryPrice, cart.goodsTotal,
+      payment, customer.paymentMethod, paymentMeta.status, paymentMeta.provider,
+      estimate.tariffCode || null, estimate.cityCode || customer.cdekCityCode || null, customer.deliveryPointCode,
+      total, createdAt
+    );
     const orderId = Number(result.lastInsertRowid);
     const insertItem = database.prepare(`
       INSERT INTO order_items (order_id, product_id, name, qty, price)
@@ -181,29 +232,82 @@ export function createCheckoutRecord(database, body, { saveOrderMessage, now = (
       items: cart.items.map(({ productId, name, price, qty }) => ({ productId, name, price, qty })),
       delivery,
       deliveryPrice: estimate.deliveryPrice,
+      deliveryMethod: customer.deliveryMethod,
       payment,
+      paymentMethod: customer.paymentMethod,
       goodsTotal: cart.goodsTotal,
       total,
       orderId,
     };
     const message = saveOrderMessage ? saveOrderMessage(messagePayload) : { ...messagePayload, payload: messagePayload };
-    return { orderId, message, total, goodsTotal: cart.goodsTotal, deliveryPrice: estimate.deliveryPrice };
+    return {
+      orderId,
+      message,
+      total,
+      goodsTotal: cart.goodsTotal,
+      deliveryPrice: estimate.deliveryPrice,
+      paymentMethod: customer.paymentMethod,
+      items: messagePayload.items,
+      order: {
+        id: orderId,
+        ...customer,
+        total,
+        goodsTotal: cart.goodsTotal,
+        deliveryPrice: estimate.deliveryPrice,
+        paymentStatus: paymentMeta.status,
+      },
+    };
   });
 
   return persist();
 }
 
-export function createCheckoutHandler({ database, saveOrderMessage, notifyTelegram, serializeOrder, logger = console }) {
+export function createCheckoutHandler({
+  database,
+  saveOrderMessage,
+  notifyTelegram,
+  serializeOrder,
+  resolveDelivery,
+  initializePayment,
+  logger = console,
+}) {
   return async function checkoutHandler(req, res) {
     let checkout;
     try {
-      checkout = createCheckoutRecord(database, req.body, { saveOrderMessage });
+      let deliveryEstimate;
+      if (resolveDelivery) {
+        const customer = validateCheckoutCustomer(req.body);
+        const requestedItems = normalizeCheckoutItems(req.body?.items);
+        const cart = loadAuthoritativeCart(database, requestedItems);
+        deliveryEstimate = await resolveDelivery({ customer, cart });
+      }
+      checkout = createCheckoutRecord(database, req.body, { saveOrderMessage, deliveryEstimate });
     } catch (error) {
       if (error instanceof CheckoutValidationError) {
         return res.status(error.statusCode).json({ message: error.message });
       }
-      logger.error("[Regola] Checkout transaction failed");
-      return res.status(500).json({ message: "Не удалось сохранить заказ" });
+      logger.error("[Regola] Checkout preparation or transaction failed");
+      return res.status(502).json({ message: "Не удалось рассчитать доставку или сохранить заказ" });
+    }
+
+    if (checkout.paymentMethod === "online") {
+      if (!initializePayment) {
+        database.prepare("UPDATE orders SET payment_status = 'setup_required' WHERE id = ?").run(checkout.orderId);
+      } else {
+        try {
+          const payment = await initializePayment({ order: checkout.order, items: checkout.items });
+          database.prepare(`
+            UPDATE orders
+            SET payment_status = CASE WHEN payment_status IN ('paid', 'authorized') THEN payment_status ELSE 'awaiting_payment' END,
+                payment_provider = ?, payment_id = COALESCE(payment_id, ?), payment_url = ?, payment_amount_kopecks = ?
+            WHERE id = ?
+          `).run(payment.provider, payment.paymentId, payment.paymentUrl, payment.amountKopecks, checkout.orderId);
+        } catch (error) {
+          const status = error?.code === "NOT_CONFIGURED" ? "setup_required" : "payment_error";
+          database.prepare("UPDATE orders SET payment_status = ? WHERE id = ?").run(status, checkout.orderId);
+          logger.warn(`[Regola] Payment initialization failed for order ${checkout.orderId}`);
+        }
+      }
     }
 
     try {
@@ -245,6 +349,32 @@ function optionalText(value, label, maxLength) {
     throw new CheckoutValidationError(`${label}: максимальная длина ${maxLength} символов`);
   }
   return text;
+}
+
+function optionalPositiveInteger(value, label) {
+  if (value === undefined || value === null || value === "") return null;
+  const number = typeof value === "number" ? value : Number(value);
+  if (!Number.isSafeInteger(number) || number <= 0) throw new CheckoutValidationError(`${label}: неверное значение`);
+  return number;
+}
+
+function normalizeDeliveryEstimate(estimate) {
+  const deliveryPrice = Number(estimate?.deliveryPrice);
+  if (!Number.isSafeInteger(deliveryPrice) || deliveryPrice < 0) {
+    throw new CheckoutValidationError("Сервис доставки вернул некорректную стоимость");
+  }
+  return {
+    ...estimate,
+    deliveryPrice,
+    tariffCode: optionalPositiveInteger(estimate.tariffCode, "Тариф СДЭК"),
+    cityCode: optionalPositiveInteger(estimate.cityCode, "Код города СДЭК"),
+  };
+}
+
+function initialPaymentMeta(method) {
+  if (method === "online") return { provider: "tbank", status: "pending" };
+  if (method === "cod") return { provider: "cdek", status: "awaiting_cod" };
+  return { provider: "manual", status: "awaiting_invoice" };
 }
 
 function safeMoneyAdd(a, b) {

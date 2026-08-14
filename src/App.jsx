@@ -1,4 +1,4 @@
-import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import Layout from "./components/Layout";
 import { useStore } from "./context/StoreContext";
@@ -93,11 +93,11 @@ function HomePage() {
         <div className="info-grid">
           <div className="info-card">
             <h3>Оплата</h3>
-            <p>Для оплаты на расчётный счёт напишите нам — мы отправим счёт с реквизитами. Онлайн-оплата через сайт будет подключена позже.</p>
+            <p>Доступны счёт на оплату, защищённая онлайн-оплата через T-Банк и оплата при получении отправления СДЭК.</p>
           </div>
           <div className="info-card">
             <h3>Доставка</h3>
-            <p>Отправляем заказы через СДЭК или Почту России. Доставка оплачивается отдельно и рассчитывается после подтверждения заказа.</p>
+            <p>Отправляем через СДЭК до ПВЗ или курьером, а также Почтой России. Стоимость рассчитывается сервером при оформлении заказа.</p>
           </div>
         </div>
       </section>
@@ -249,7 +249,8 @@ function QuestionSection() {
 }
 
 function CartPage() {
-  const { cartItems, updateCartQty, removeFromCart, cartTotal, clearCart, sendCheckout, estimateCdekDelivery } = useStore();
+  const { cartItems, updateCartQty, removeFromCart, cartTotal, clearCart, sendCheckout, estimateCdekDelivery, commerce } = useStore();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({
     name: "",
     phone: "",
@@ -258,18 +259,35 @@ function CartPage() {
     address: "",
     deliveryMethod: "СДЭК до ПВЗ",
     paymentMethod: "invoice",
+    cdekCityCode: null,
+    deliveryPointCode: "",
     comment: "",
   });
   const [deliveryEstimate, setDeliveryEstimate] = useState(null);
-  const [status, setStatus] = useState("");
+  const [deliveryPoints, setDeliveryPoints] = useState([]);
+  const paymentResult = searchParams.get("payment");
+  const [status, setStatus] = useState(
+    paymentResult === "success"
+      ? "Платёж принят. Финальный статус появится в админ-панели после уведомления T-Банка."
+      : paymentResult === "fail" ? "Оплата не завершена. Свяжитесь с нами или оформите заказ повторно." : ""
+  );
   const orderTotal = cartTotal + Number(deliveryEstimate?.deliveryPrice || 0);
 
   const estimateDelivery = async () => {
     setStatus("");
     try {
       const items = cartItems.map((item) => ({ productId: item.id, qty: item.qty }));
-      const estimate = await estimateCdekDelivery({ city: form.city, items });
+      const estimate = await estimateCdekDelivery({ city: form.city, deliveryMethod: form.deliveryMethod, items });
       setDeliveryEstimate(estimate);
+      setForm((current) => ({ ...current, cdekCityCode: estimate.cityCode || null, deliveryPointCode: "" }));
+      if (form.deliveryMethod === "СДЭК до ПВЗ" && estimate.cityCode && commerce.cdekApiEnabled) {
+        const response = await fetch(`/api/cdek/delivery-points?cityCode=${encodeURIComponent(estimate.cityCode)}`);
+        const points = await response.json();
+        if (!response.ok) throw new Error(points.message || "Не удалось загрузить ПВЗ СДЭК");
+        setDeliveryPoints(Array.isArray(points) ? points : []);
+      } else {
+        setDeliveryPoints([]);
+      }
     } catch (error) {
       setStatus(error.message);
     }
@@ -279,15 +297,33 @@ function CartPage() {
     e.preventDefault();
     if (!cartItems.length) return;
     setStatus("");
+    if (form.paymentMethod === "online" && !commerce.tbankEnabled) {
+      setStatus("Онлайн-оплата ещё не подключена. Выберите счёт или оплату при получении.");
+      return;
+    }
+    if (commerce.cdekApiEnabled && form.deliveryMethod === "СДЭК до ПВЗ" && !form.deliveryPointCode) {
+      setStatus("Рассчитайте доставку и выберите пункт выдачи СДЭК.");
+      return;
+    }
     try {
-      await sendCheckout({
+      const order = await sendCheckout({
         ...form,
         items: cartItems.map((item) => ({ productId: item.id, qty: item.qty })),
       });
       clearCart();
-      setForm({ name: "", phone: "", email: "", city: "", address: "", deliveryMethod: "СДЭК до ПВЗ", paymentMethod: "invoice", comment: "" });
+      setForm({ name: "", phone: "", email: "", city: "", address: "", deliveryMethod: "СДЭК до ПВЗ", paymentMethod: "invoice", cdekCityCode: null, deliveryPointCode: "", comment: "" });
       setDeliveryEstimate(null);
-      setStatus("Заказ отправлен. Мы подтвердим доставку СДЭК и способ оплаты.");
+      setDeliveryPoints([]);
+      if (order.paymentUrl) {
+        setStatus("Переходим на защищённую платёжную форму T-Банка...");
+        window.location.assign(order.paymentUrl);
+        return;
+      }
+      if (order.paymentMethod === "cod") {
+        setStatus("Заказ принят. Оплата будет произведена при получении отправления СДЭК.");
+      } else {
+        setStatus("Заказ отправлен. Мы подтвердим доставку и направим данные для оплаты.");
+      }
     } catch (error) {
       setStatus(error.message);
     }
@@ -321,23 +357,29 @@ function CartPage() {
           </div>
           <form className="form checkout-form" onSubmit={submit}>
             <h2>Оформление заказа</h2>
-            <p>Сейчас заказ отправляется как заявка. Онлайн-оплата включится после получения договора и ключей эквайринга. Доставка СДЭК считается предварительно и подтверждается менеджером.</p>
+            <p>Стоимость заказа рассчитывается сервером. Онлайн-оплата проходит на защищённой форме T-Банка, доставка — через СДЭК.</p>
             <input required placeholder="Ваше имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <input required placeholder="Телефон" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <div className="checkout-grid">
               <input required placeholder="Город доставки" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-              <select value={form.deliveryMethod} onChange={(e) => setForm({ ...form, deliveryMethod: e.target.value })}>
+              <select value={form.deliveryMethod} onChange={(e) => { setForm({ ...form, deliveryMethod: e.target.value, cdekCityCode: null, deliveryPointCode: "" }); setDeliveryEstimate(null); setDeliveryPoints([]); }}>
                 <option>СДЭК до ПВЗ</option>
                 <option>СДЭК курьером</option>
                 <option>Почта России</option>
               </select>
             </div>
-            <input placeholder="Адрес или желаемый ПВЗ" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            {form.deliveryMethod === "СДЭК до ПВЗ" && deliveryPoints.length > 0 && (
+              <select required value={form.deliveryPointCode} onChange={(e) => setForm({ ...form, deliveryPointCode: e.target.value })}>
+                <option value="">Выберите пункт выдачи СДЭК</option>
+                {deliveryPoints.map((point) => <option key={point.code} value={point.code}>{point.address || point.name}</option>)}
+              </select>
+            )}
+            <input required={form.deliveryMethod === "СДЭК курьером"} placeholder="Адрес или желаемый ПВЗ" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
               <option value="invoice">Счёт на оплату</option>
-              <option value="online">Онлайн-оплата после подключения</option>
-              <option value="cod">Оплата при получении / по согласованию</option>
+              <option value="online" disabled={!commerce.tbankEnabled}>Онлайн-оплата через T-Банк{commerce.tbankEnabled ? "" : " — подключается"}</option>
+              <option value="cod">Оплата при получении через СДЭК{commerce.cdekApiEnabled ? "" : " — после подтверждения"}</option>
             </select>
             <button type="button" onClick={estimateDelivery}>Рассчитать СДЭК</button>
             {deliveryEstimate && (
@@ -408,6 +450,23 @@ const MESSAGE_STATUS_LABELS = {
   spam: "спам",
 };
 
+const PAYMENT_STATUS_LABELS = {
+  pending: "ожидает инициализации",
+  awaiting_payment: "ожидает оплаты",
+  authorized: "авторизован",
+  paid: "оплачен",
+  failed: "ошибка оплаты",
+  payment_error: "не удалось открыть оплату",
+  setup_required: "эквайринг не настроен",
+  cancelled: "отменён",
+  expired: "истёк",
+  refunded: "возвращён",
+  partially_refunded: "частичный возврат",
+  awaiting_cod: "оплата при получении в СДЭК",
+  cod_collected: "покупатель оплатил при получении",
+  awaiting_invoice: "ожидает счёта",
+};
+
 function formatDateTime(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -444,7 +503,7 @@ function fileToOptimizedDataUrl(file) {
 }
 
 function AdminPage() {
-  const { user, isAdminSessionValid, products, categories, upsertProduct, deleteProduct, orders, messages, updateOrderStatus, updateMessage } = useStore();
+  const { user, isAdminSessionValid, products, categories, upsertProduct, deleteProduct, orders, messages, updateOrderStatus, updateMessage, createCdekShipment, refreshCdekShipment, commerce } = useStore();
   const [form, setForm] = useState(EMPTY_ADMIN_FORM);
   const [adminQuery, setAdminQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -630,6 +689,11 @@ function AdminPage() {
               <p><b>Адрес:</b> {o.address || "не указан"}</p>
               <p><b>Доставка:</b> {o.delivery}</p>
               <p><b>Оплата:</b> {o.payment}</p>
+              <p><b>Статус оплаты:</b> {PAYMENT_STATUS_LABELS[o.paymentStatus] || o.paymentStatus}</p>
+              {o.paymentId && <p><b>ID T-Банка:</b> {o.paymentId}</p>}
+              {o.cdekNumber && <p><b>Номер СДЭК:</b> {o.cdekNumber}</p>}
+              {o.cdekUuid && <p><b>UUID СДЭК:</b> {o.cdekUuid}</p>}
+              {o.cdekStatus && <p><b>Статус СДЭК:</b> {o.cdekStatus}</p>}
               <p><b>Итого:</b> {formatRub(o.total)} ₽</p>
             </div>
             {o.items?.length > 0 && (
@@ -638,6 +702,24 @@ function AdminPage() {
                   <li key={item.productId + item.name}>{item.name} × {item.qty} — {formatRub(item.price * item.qty)} ₽</li>
                 ))}
               </ul>
+            )}
+            {String(o.deliveryMethod || "").startsWith("СДЭК") && !o.cdekUuid && (
+              <button
+                type="button"
+                disabled={!commerce.cdekOrderCreationEnabled || (o.paymentMethod === "online" && o.paymentStatus !== "paid")}
+                onClick={() => createCdekShipment(o.id).catch((error) => alert(error.message))}
+              >
+                Создать отправление СДЭК
+              </button>
+            )}
+            {o.cdekUuid && (
+              <button
+                type="button"
+                disabled={!commerce.cdekApiEnabled}
+                onClick={() => refreshCdekShipment(o.id).catch((error) => alert(error.message))}
+              >
+                Обновить статус СДЭК
+              </button>
             )}
           </article>
         ))}

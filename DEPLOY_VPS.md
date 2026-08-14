@@ -1,76 +1,61 @@
-# Запуск Regola на VPS
+# Regola: production на VPS
 
-## 1. DNS
+Домен: `regola.shop`. Приложение работает в Docker на `127.0.0.1:4000`, Nginx принимает HTTP/HTTPS, база хранится в `/opt/regola-data/regola.db`.
 
-В панели REG.RU для `regola.ru` создайте записи:
-
-```text
-A     @      IP_ВАШЕГО_VPS
-A     www    IP_ВАШЕГО_VPS
-```
-
-Подождите обновления DNS.
-
-## 2. Подготовка сервера
-
-Ubuntu/Debian:
+## Первичная установка
 
 ```bash
-sudo apt update
-sudo apt install -y git docker.io docker-compose-plugin nginx certbot python3-certbot-nginx
-sudo systemctl enable --now docker nginx
-```
-
-## 3. Загрузка проекта
-
-```bash
-cd /opt
-sudo git clone YOUR_REPO_URL regola
-sudo chown -R $USER:$USER /opt/regola
+apt update
+apt install -y git docker.io nginx certbot python3-certbot-nginx
+systemctl enable --now docker nginx
+git clone https://github.com/merhab228/regola-store /opt/regola
+mkdir -p /opt/regola-data
 cd /opt/regola
 cp .env.example .env
 nano .env
 ```
 
-В `.env` задайте:
+Минимально обязательные production-переменные:
 
 ```env
 NODE_ENV=production
 PORT=4000
-JWT_SECRET=long_random_secret
-ADMIN_LOGIN=your_login
-ADMIN_PASSWORD=your_strong_password
-ADMIN_ACCESS_KEY=your_secret_key
-VITE_ADMIN_PATH=/_secure-admin-7f29A228lswP
+TRUST_PROXY=1
 DB_PATH=/app/data/regola.db
+PUBLIC_BASE_URL=https://regola.shop
+JWT_SECRET=strong-random-secret-at-least-32-characters
+ADMIN_LOGIN=change-me
+ADMIN_PASSWORD=change-me-at-least-12-characters
+ADMIN_ACCESS_KEY=another-strong-random-secret
+VITE_ADMIN_PATH=/_secure-admin-7f29A228lswP
 ```
 
-## 4. Запуск
+## Сборка и запуск
 
 ```bash
-docker compose up -d --build
-docker compose logs -f
+cd /opt/regola
+docker build -t regola-store:latest .
+docker rm -f regola 2>/dev/null || true
+docker run -d \
+  --name regola \
+  --restart unless-stopped \
+  --env-file .env \
+  -e DB_PATH=/app/data/regola.db \
+  -p 127.0.0.1:4000:4000 \
+  -v /opt/regola-data:/app/data \
+  regola-store:latest
+curl -fsS http://127.0.0.1:4000/api/health
 ```
 
-Проверка:
+## Nginx
 
-```bash
-curl http://127.0.0.1:4000/api/health
-```
-
-## 5. Nginx
-
-Создайте конфиг:
-
-```bash
-sudo nano /etc/nginx/sites-available/regola.ru
-```
-
-Вставьте:
+`/etc/nginx/sites-available/regola.shop`:
 
 ```nginx
 server {
-    server_name regola.ru www.regola.ru;
+    server_name regola.shop www.regola.shop;
+
+    client_max_body_size 40m;
 
     location / {
         proxy_pass http://127.0.0.1:4000;
@@ -83,32 +68,42 @@ server {
 }
 ```
 
-Включите сайт:
-
 ```bash
-sudo ln -s /etc/nginx/sites-available/regola.ru /etc/nginx/sites-enabled/regola.ru
-sudo nginx -t
-sudo systemctl reload nginx
+ln -sf /etc/nginx/sites-available/regola.shop /etc/nginx/sites-enabled/regola.shop
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+systemctl reload nginx
+certbot --nginx -d regola.shop -d www.regola.shop
 ```
 
-## 6. HTTPS
+## Обновление без потери базы
 
 ```bash
-sudo certbot --nginx -d regola.ru -d www.regola.ru
-```
-
-## 7. Обновление сайта
-
-```bash
+mkdir -p /opt/regola-backups
+cp /opt/regola-data/regola.db /opt/regola-backups/regola-$(date +%F-%H%M%S).db
 cd /opt/regola
-git pull
-docker compose up -d --build
+git pull --ff-only origin main
+docker build -t regola-store:latest .
+docker rm -f regola
+docker run -d \
+  --name regola \
+  --restart unless-stopped \
+  --env-file .env \
+  -e DB_PATH=/app/data/regola.db \
+  -p 127.0.0.1:4000:4000 \
+  -v /opt/regola-data:/app/data \
+  regola-store:latest
+curl -fsS http://127.0.0.1:4000/api/health
 ```
 
-## 8. Бэкап базы
+## Включение T-Банка и СДЭК
+
+Сначала заполнить тестовые ключи из `.env.example` и оставить `TBANK_MODE=test`, `CDEK_MODE=test`. После тест-кейсов и письменной приёмки заменить ключи на боевые и переключить режимы на `production`. Изменение `.env` требует пересоздания контейнера командой из раздела обновления.
+
+Публичная безопасная проверка конфигурации:
 
 ```bash
-mkdir -p ~/regola-backups
-docker compose exec regola sh -c 'cp /app/data/regola.db /tmp/regola.db'
-docker cp regola-regola-1:/tmp/regola.db ~/regola-backups/regola-$(date +%F).db
+curl -fsS https://regola.shop/api/commerce/config
 ```
+
+Этот endpoint возвращает только флаги готовности и режимы, но никогда не возвращает секреты.

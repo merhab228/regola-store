@@ -54,9 +54,27 @@ CREATE TABLE IF NOT EXISTS orders (
   status TEXT NOT NULL,
   name TEXT NOT NULL,
   phone TEXT NOT NULL,
+  email TEXT,
+  city TEXT,
   address TEXT NOT NULL,
+  comment TEXT,
   delivery TEXT NOT NULL,
+  delivery_method TEXT,
+  delivery_price INTEGER NOT NULL DEFAULT 0,
+  goods_total INTEGER NOT NULL DEFAULT 0,
   payment TEXT NOT NULL,
+  payment_method TEXT,
+  payment_status TEXT NOT NULL DEFAULT 'pending',
+  payment_provider TEXT,
+  payment_id TEXT,
+  payment_url TEXT,
+  payment_amount_kopecks INTEGER,
+  cdek_status TEXT,
+  cdek_uuid TEXT,
+  cdek_number TEXT,
+  cdek_tariff_code INTEGER,
+  cdek_city_code INTEGER,
+  cdek_delivery_point TEXT,
   total INTEGER NOT NULL,
   created_at TEXT NOT NULL
 );
@@ -108,6 +126,31 @@ for (const [column, type] of [
   ["admin_note", "TEXT"],
 ]) {
   if (!messageColNames.has(column)) db.exec(`ALTER TABLE site_messages ADD COLUMN ${column} ${type}`);
+}
+
+const orderColumns = db.prepare("PRAGMA table_info(orders)").all();
+const orderColNames = new Set(orderColumns.map((c) => c.name));
+for (const [column, type] of [
+  ["email", "TEXT"],
+  ["city", "TEXT"],
+  ["comment", "TEXT"],
+  ["delivery_method", "TEXT"],
+  ["delivery_price", "INTEGER NOT NULL DEFAULT 0"],
+  ["goods_total", "INTEGER NOT NULL DEFAULT 0"],
+  ["payment_method", "TEXT"],
+  ["payment_status", "TEXT NOT NULL DEFAULT 'pending'"],
+  ["payment_provider", "TEXT"],
+  ["payment_id", "TEXT"],
+  ["payment_url", "TEXT"],
+  ["payment_amount_kopecks", "INTEGER"],
+  ["cdek_status", "TEXT"],
+  ["cdek_uuid", "TEXT"],
+  ["cdek_number", "TEXT"],
+  ["cdek_tariff_code", "INTEGER"],
+  ["cdek_city_code", "INTEGER"],
+  ["cdek_delivery_point", "TEXT"],
+]) {
+  if (!orderColNames.has(column)) db.exec(`ALTER TABLE orders ADD COLUMN ${column} ${type}`);
 }
 
 export default db;
