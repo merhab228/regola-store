@@ -268,6 +268,46 @@ test("a Telegram failure after commit still returns the created order", async ()
   database.close();
 });
 
+test("a T-Bank initialization failure is returned to the checkout UI", async () => {
+  const database = createDatabase();
+  insertProduct(database);
+  const warnings = [];
+  const handler = createCheckoutHandler({
+    database,
+    saveOrderMessage: (payload) => ({ name: payload.name, payload }),
+    notifyTelegram: async () => {},
+    initializePayment: async () => {
+      const error = new Error("Неверные данные тестового терминала");
+      error.code = "INIT_FAILED";
+      throw error;
+    },
+    serializeOrder: (order) => ({
+      id: order.id,
+      paymentMethod: order.payment_method,
+      paymentStatus: order.payment_status,
+      paymentUrl: order.payment_url || "",
+    }),
+    logger: { error() {}, warn(message) { warnings.push(message); } },
+  });
+  const response = {
+    statusCode: 0,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+  };
+
+  await handler({ body: checkoutBody({ paymentMethod: "online" }) }, response);
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.body.paymentStatus, "payment_error");
+  assert.equal(response.body.paymentUrl, "");
+  assert.equal(response.body.paymentError, "Неверные данные тестового терминала");
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /INIT_FAILED/);
+  assert.doesNotMatch(warnings[0], /Неверные данные тестового терминала/);
+  database.close();
+});
+
 test("legitimate checkout snapshots current database prices and exact total", () => {
   const database = createDatabase();
   insertProduct(database, { id: 1, price: 830 });

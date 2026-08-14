@@ -265,6 +265,7 @@ function CartPage() {
   });
   const [deliveryEstimate, setDeliveryEstimate] = useState(null);
   const [deliveryPoints, setDeliveryPoints] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const paymentResult = searchParams.get("payment");
   const [status, setStatus] = useState(
     paymentResult === "success"
@@ -295,8 +296,8 @@ function CartPage() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!cartItems.length) return;
-    setStatus("");
+    if (!cartItems.length || isSubmitting) return;
+    setStatus("Отправляем заказ…");
     if (form.paymentMethod === "online" && !commerce.tbankEnabled) {
       setStatus("Онлайн-оплата ещё не подключена. Выберите счёт или оплату при получении.");
       return;
@@ -305,6 +306,7 @@ function CartPage() {
       setStatus("Рассчитайте доставку и выберите пункт выдачи СДЭК.");
       return;
     }
+    setIsSubmitting(true);
     try {
       const order = await sendCheckout({
         ...form,
@@ -319,14 +321,27 @@ function CartPage() {
         window.location.assign(order.paymentUrl);
         return;
       }
+      if (order.paymentMethod === "online") {
+        setStatus(`Заказ №${order.id} создан, но платёжная форма T-Банка не открылась. ${order.paymentError || "Мы свяжемся с вами для завершения оплаты."}`);
+        return;
+      }
       if (order.paymentMethod === "cod") {
         setStatus("Заказ принят. Оплата будет произведена при получении отправления СДЭК.");
       } else {
         setStatus("Заказ отправлен. Мы подтвердим доставку и направим данные для оплаты.");
       }
     } catch (error) {
-      setStatus(error.message);
+      setStatus(error.message || "Не удалось отправить заказ. Попробуйте ещё раз.");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const showValidationError = (e) => {
+    e.preventDefault();
+    const fieldName = e.target.placeholder || "обязательное поле";
+    setStatus(`Проверьте поле «${fieldName}»: ${e.target.validationMessage}`);
+    e.target.focus();
   };
 
   return (
@@ -355,7 +370,7 @@ function CartPage() {
             {deliveryEstimate && <span>Доставка: <b>{formatRub(deliveryEstimate.deliveryPrice)} ₽</b></span>}
             <span>Итого: <b>{formatRub(orderTotal)} ₽</b></span>
           </div>
-          <form className="form checkout-form" onSubmit={submit}>
+          <form className="form checkout-form" onSubmit={submit} onInvalid={showValidationError}>
             <h2>Оформление заказа</h2>
             <p>Стоимость заказа рассчитывается сервером. Онлайн-оплата проходит на защищённой форме T-Банка, доставка — через СДЭК.</p>
             <input required placeholder="Ваше имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -389,8 +404,8 @@ function CartPage() {
               </p>
             )}
             <textarea placeholder="Комментарий к заказу" value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} />
-            <button className="btn" type="submit">Отправить заказ</button>
-            {status && <p className="form-hint">{status}</p>}
+            <button className="btn" type="submit" disabled={isSubmitting}>{isSubmitting ? "Отправляем…" : "Отправить заказ"}</button>
+            {status && <p className="form-hint checkout-status" role="status" aria-live="polite">{status}</p>}
           </form>
         </>
       )}

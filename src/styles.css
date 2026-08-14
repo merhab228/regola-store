@@ -553,6 +553,20 @@ textarea:focus {
   border: 1px solid var(--regola-border);
   flex-wrap: wrap;
 }
+.checkout-status {
+  margin: 2px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--regola-border);
+  border-radius: 10px;
+  background: var(--regola-card);
+  color: var(--regola-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+.checkout-form button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
 .admin-product-row img {
   width: 54px;
   height: 54px;

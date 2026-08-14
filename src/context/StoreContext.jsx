@@ -190,6 +190,7 @@ export function StoreProvider({ children }) {
   const sendCheckout = async (payload) => api("/api/checkout", {
     method: "POST",
     body: JSON.stringify(payload),
+    timeoutMs: 25_000,
   });
 
   const estimateCdekDelivery = async (payload) => api("/api/cdek/estimate", {
@@ -232,20 +233,31 @@ export function StoreProvider({ children }) {
 }
 
 async function api(url, options = {}, token) {
+  const { timeoutMs = 30_000, ...fetchOptions } = options;
   const headers = {
     "Content-Type": "application/json",
-    ...(options.headers || {}),
+    ...(fetchOptions.headers || {}),
   };
   if (token) headers.Authorization = "Bearer " + token;
-  const response = await fetch(url, { ...options, headers });
-  if (!response.ok) {
-    const data = await response.json().catch(() => ({}));
-    const error = new Error(data.message || "Request failed");
-    error.status = response.status;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...fetchOptions, headers, signal: controller.signal });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      const error = new Error(data.message || `Сервер ответил кодом ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("Сервер не ответил вовремя. Попробуйте ещё раз.");
+    if (error instanceof TypeError) throw new Error("Не удалось связаться с сервером. Проверьте интернет и повторите.");
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  if (response.status === 204) return null;
-  return response.json();
 }
 
 export function useStore() {

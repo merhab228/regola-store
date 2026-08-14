@@ -273,6 +273,7 @@ export function createCheckoutHandler({
 }) {
   return async function checkoutHandler(req, res) {
     let checkout;
+    let paymentError = "";
     try {
       let deliveryEstimate;
       if (resolveDelivery) {
@@ -305,7 +306,8 @@ export function createCheckoutHandler({
         } catch (error) {
           const status = error?.code === "NOT_CONFIGURED" ? "setup_required" : "payment_error";
           database.prepare("UPDATE orders SET payment_status = ? WHERE id = ?").run(status, checkout.orderId);
-          logger.warn(`[Regola] Payment initialization failed for order ${checkout.orderId}`);
+          paymentError = error?.message || "T-Банк не создал платёж";
+          logger.warn(`[Regola] Payment initialization failed for order ${checkout.orderId}: ${error?.code || "UNKNOWN"}`);
         }
       }
     }
@@ -317,7 +319,9 @@ export function createCheckoutHandler({
     }
 
     const row = database.prepare("SELECT * FROM orders WHERE id = ?").get(checkout.orderId);
-    return res.status(201).json(serializeOrder(row));
+    const responseOrder = serializeOrder(row);
+    if (paymentError) responseOrder.paymentError = paymentError;
+    return res.status(201).json(responseOrder);
   };
 }
 
