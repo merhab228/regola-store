@@ -20,6 +20,12 @@ npm run server
 npm run dev
 ```
 
+## Security case study
+
+A security review identified a business-logic vulnerability in the checkout flow: the server trusted client-supplied item prices and totals. The checkout now loads authoritative prices from SQLite, calculates delivery and payable totals on the server, and rejects invalid products and quantities. The remediation is covered by regression tests.
+
+Full report: [Client-Controlled Pricing in an E-commerce Checkout](https://github.com/merhab228/regola-checkout-security-audit)
+
 ## Production
 
 ```bash
