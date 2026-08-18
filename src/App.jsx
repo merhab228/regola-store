@@ -258,7 +258,7 @@ function CartPage() {
     city: "",
     address: "",
     deliveryMethod: "СДЭК до ПВЗ",
-    paymentMethod: "invoice",
+    paymentMethod: "online",
     cdekCityCode: null,
     deliveryPointCode: "",
     cityFiasId: "",
@@ -362,7 +362,7 @@ function CartPage() {
         items: cartItems.map((item) => ({ productId: item.id, qty: item.qty })),
       });
       clearCart();
-      setForm({ name: "", phone: "", email: "", city: "", address: "", deliveryMethod: "СДЭК до ПВЗ", paymentMethod: "invoice", cdekCityCode: null, deliveryPointCode: "", cityFiasId: "", addressFiasId: "", comment: "" });
+      setForm({ name: "", phone: "", email: "", city: "", address: "", deliveryMethod: "СДЭК до ПВЗ", paymentMethod: "online", cdekCityCode: null, deliveryPointCode: "", cityFiasId: "", addressFiasId: "", comment: "" });
       setDeliveryEstimate(null);
       setDeliveryPoints([]);
       if (order.paymentUrl) {
