@@ -1,4 +1,4 @@
-import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import Layout from "./components/Layout";
 import { useStore } from "./context/StoreContext";
@@ -65,73 +65,141 @@ function DescriptionText({ text }) {
 
 function HomePage() {
   const { products } = useStore();
-  const location = useLocation();
   const handles = products.filter((p) => (p.category_id ?? p.categoryId) === 1);
   const catalogHandles = [...handles].sort((a, b) => String(a.name).localeCompare(String(b.name), "ru", { sensitivity: "base" }));
 
-  useEffect(() => {
-    if (!location.hash) return;
-    const id = location.hash.slice(1);
-    const t = window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
-    return () => clearTimeout(t);
-  }, [location.hash, location.pathname]);
-
   return (
-    <>
-      <section id="catalog" className="catalog-section catalog-section--first motion-in" aria-labelledby="catalog-heading">
-        <div className="catalog-title">
-          <span />
-          <h1 id="catalog-heading">Каталог</h1>
-          <span />
-        </div>
-        <p className="catalog-lead catalog-lead--center">Выберите товар.</p>
-        {catalogHandles.length === 0 ? <p className="catalog-empty">Каталог скоро будет заполнен.</p> : <ProductGrid products={catalogHandles} />}
-      </section>
+    <section id="catalog" className="catalog-section catalog-section--first motion-in" aria-labelledby="catalog-heading">
+      <PageTitle id="catalog-heading">Каталог</PageTitle>
+      {catalogHandles.length === 0 ? <p className="catalog-empty">Каталог скоро будет заполнен.</p> : <ProductGrid products={catalogHandles} />}
+    </section>
+  );
+}
 
-      <section id="payment" className="info-section motion-in motion-in--delay-1" aria-labelledby="payment-heading">
-        <h2 id="payment-heading">Оплата и доставка</h2>
-        <div className="info-grid">
-          <div className="info-card">
-            <h3>Оплата</h3>
-            <p>Доступны счёт на оплату, защищённая онлайн-оплата через T-Банк и оплата при получении отправления СДЭК.</p>
-          </div>
-          <div className="info-card">
-            <h3>Доставка</h3>
-            <p>Отправляем через СДЭК до ПВЗ или курьером, а также Почтой России. Стоимость рассчитывается сервером при оформлении заказа.</p>
-          </div>
-        </div>
-      </section>
+function PageTitle({ id, children, eyebrow }) {
+  return (
+    <div className="page-title">
+      {eyebrow && <p>{eyebrow}</p>}
+      <h1 id={id}>{children}</h1>
+      <span aria-hidden="true" />
+    </div>
+  );
+}
 
-      <section id="about" className="info-section motion-in motion-in--delay-2" aria-labelledby="about-heading">
-        <h2 id="about-heading">Цель компании</h2>
-        <p>REGOLA — торговая марка дверных ручек, которая уверенно развивается на рынке уже 3 года. Сегодня продукцию REGOLA можно встретить на крупнейших маркетплейсах, но мы стремимся к более тесному взаимодействию с клиентами: на нашем сайте вы можете оформить заказ напрямую, без посредников.</p>
-        <p>Такой подход нередко оказывается выгоднее для покупателя, а для нас — возможность выстраивать прозрачные и доверительные отношения с каждым клиентом. Мы по-прежнему сохраняем присутствие на маркетплейсах, но в перспективе планируем сфокусироваться на прямых продажах.</p>
-        <p>Для юридических лиц предусмотрена возможность оптовых закупок с оплатой по расчётному счёту. На всю продукцию REGOLA действует гарантия качества сроком 1 год, а при возникновении любых вопросов или сложностей мы всегда на связи — вместе найдём оптимальное решение.</p>
+function PaymentDeliveryPage() {
+  return (
+    <section className="content-page motion-in" aria-labelledby="payment-heading">
+      <PageTitle id="payment-heading" eyebrow="Покупка напрямую у Regola">Оплата и доставка</PageTitle>
+      <div className="service-grid">
+        <article className="service-card service-card--payment">
+          <div className="service-card__icon" aria-hidden="true">₽</div>
+          <div><p className="service-card__number">01</p><h2>Безопасная онлайн-оплата</h2></div>
+          <p>Оплатите заказ банковской картой на защищённой платёжной форме Т‑Банка. Данные карты не передаются сайту Regola.</p>
+        </article>
+        <article className="service-card service-card--delivery">
+          <div className="service-card__icon" aria-hidden="true">→</div>
+          <div><p className="service-card__number">02</p><h2>Доставка СДЭК</h2></div>
+          <p>Выберите пункт выдачи или курьерскую доставку до двери. Стоимость и срок рассчитываются при оформлении заказа.</p>
+        </article>
+      </div>
+      <section className="process-section" aria-labelledby="process-heading">
+        <h2 id="process-heading">Как проходит заказ</h2>
+        <ol className="process-steps">
+          <li><b>Добавьте товар</b><span>Выберите модель, цвет и количество.</span></li>
+          <li><b>Укажите доставку</b><span>Выберите город, способ доставки и удобный ПВЗ.</span></li>
+          <li><b>Оплатите онлайн</b><span>После создания заказа откроется защищённая форма Т‑Банка.</span></li>
+          <li><b>Получите заказ</b><span>Мы передадим отправление в СДЭК и сообщим трек‑номер.</span></li>
+        </ol>
       </section>
-
-      <section id="order" className="info-section motion-in motion-in--delay-3" aria-labelledby="order-heading">
-        <h2 id="order-heading">Заказ через маркетплейсы</h2>
-        <div className="info-grid info-grid--triple">
-          <div className="info-card"><h3>1. Откройте товар</h3><p>Нажмите на фото или название товара в каталоге, чтобы перейти в подробную карточку.</p></div>
-          <div className="info-card"><h3>2. Выберите площадку</h3><p>Внизу карточки товара размещены ссылки на Wildberries, Ozon и Яндекс Маркет, если товар там опубликован.</p></div>
-          <div className="info-card"><h3>3. Оформите заказ</h3><p>Можно заказать через маркетплейс или добавить товар в корзину сайта и отправить заявку напрямую нам.</p></div>
-        </div>
-      </section>
-
-      <section id="guarantees" className="info-section guarantee-section motion-in motion-in--delay-4" aria-labelledby="guarantees-heading">
+      <section className="marketplace-section" aria-labelledby="marketplace-heading">
         <div>
-          <h2 id="guarantees-heading">Гарантии</h2>
-          <p>На всю продукцию REGOLA действует гарантия качества сроком 1 год. Мы внимательно проверяем фурнитуру перед продажей, а если у вас появится вопрос по заказу, комплектации или эксплуатации — свяжитесь с нами, и мы поможем найти решение.</p>
+          <p className="section-kicker">Альтернативный способ покупки</p>
+          <h2 id="marketplace-heading">Заказ через маркетплейсы</h2>
+          <p>В каждой карточке товара есть прямые ссылки на Wildberries, Ozon и Яндекс Маркет. Выберите удобную площадку и оформите заказ в её приложении.</p>
         </div>
-        <div className="guarantee-visual" aria-hidden="true">1 год<br /><span>гарантии</span></div>
+        <div className="marketplace-quick-links">
+          <a href="https://www.wildberries.ru/seller/782141" target="_blank" rel="noreferrer">Wildberries <span>↗</span></a>
+          <a href="https://www.ozon.ru/seller/torretta/" target="_blank" rel="noreferrer">Ozon <span>↗</span></a>
+          <a href="https://market.yandex.ru/business--regola/203997184" target="_blank" rel="noreferrer">Яндекс Маркет <span>↗</span></a>
+        </div>
       </section>
+      <WholesaleCallout />
+    </section>
+  );
+}
 
-      <QuestionSection />
+function AboutPage() {
+  return (
+    <section className="content-page motion-in" aria-labelledby="about-heading">
+      <PageTitle id="about-heading" eyebrow="Эстетика в каждой детали">Цель компании</PageTitle>
+      <div className="about-story">
+        <div className="about-story__lead">
+          <p>Regola создана для тех, кто ценит сочетание эстетики и функциональности в каждой детали интерьера.</p>
+        </div>
+        <div className="about-story__body">
+          <p>Мы специализируемся на дверных ручках для межкомнатных дверей. Производство расположено в Китае на площадках с современным высокотехнологичным оборудованием.</p>
+          <p>Это позволяет внедрять инженерные решения, обеспечивать высокую точность изготовления и контролировать качество на каждом этапе производства.</p>
+          <p>Мы тщательно подбираем материалы, тестируем образцы и проверяем каждую модель перед отправкой. Наша цель — предложить фурнитуру, которая сохраняет внешний вид и исправно служит долгие годы.</p>
+        </div>
+      </div>
+      <div className="values-grid">
+        <article><span>01</span><h2>Продуманный дизайн</h2><p>Лаконичные формы и актуальные покрытия для современных интерьеров.</p></article>
+        <article><span>02</span><h2>Контроль качества</h2><p>Многоступенчатая проверка материалов, механизмов и комплектации.</p></article>
+        <article><span>03</span><h2>Прямая связь</h2><p>Консультация до покупки и поддержка после получения заказа.</p></article>
+      </div>
+    </section>
+  );
+}
 
-      <section className="seo-section" aria-label="Ключевые фразы">
-        <p>дверные ручки REGOLA, купить дверные ручки, ручки для межкомнатных дверей, дверная фурнитура, ручки Санкт-Петербург, фурнитура для дверей, качественные дверные ручки, Regola</p>
-      </section>
-    </>
+function GuaranteesPage() {
+  return (
+    <section className="content-page motion-in" aria-labelledby="guarantees-heading">
+      <PageTitle id="guarantees-heading" eyebrow="Уверенность в выборе">Гарантии</PageTitle>
+      <div className="guarantee-hero">
+        <div className="guarantee-seal" aria-hidden="true"><b>1</b><span>год гарантии</span></div>
+        <div>
+          <h2>Гарантия качества Regola</h2>
+          <p>На продукцию Regola действует гарантия сроком один год. Перед продажей мы проверяем внешний вид, механизм и комплектацию каждой модели.</p>
+          <p>Если возникнет вопрос по заказу, установке или эксплуатации, напишите нам — мы разберём обращение и предложим решение.</p>
+        </div>
+      </div>
+      <div className="guarantee-steps">
+        <article><b>01</b><h3>Сохраните заказ</h3><p>Номер заказа или подтверждение покупки поможет быстрее найти информацию.</p></article>
+        <article><b>02</b><h3>Опишите ситуацию</h3><p>Приложите фотографии или видео и укажите, когда обнаружили проблему.</p></article>
+        <article><b>03</b><h3>Получите решение</h3><p>Мы проверим обращение и согласуем замену, комплектующую или иной вариант.</p></article>
+      </div>
+    </section>
+  );
+}
+
+function ContactsPage() {
+  return (
+    <section className="content-page motion-in" aria-labelledby="contacts-heading">
+      <PageTitle id="contacts-heading" eyebrow="Мы на связи">Контакты</PageTitle>
+      <div className="contact-page-grid">
+        <div className="contact-panel">
+          <h2>Интернет-магазин дверных ручек</h2>
+          <p>г. Санкт-Петербург, проспект Героев, д. 26</p>
+          <p>Напишите нам в удобном мессенджере — ответим по товару, доставке, гарантии или оптовому заказу.</p>
+          <div className="contact-icon-links">
+            <a href="https://t.me/" target="_blank" rel="noreferrer" aria-label="Telegram">TG</a>
+            <a href="https://max.ru/" target="_blank" rel="noreferrer" aria-label="MAX">MAX</a>
+            <a href="https://wa.me/79829412000" target="_blank" rel="noreferrer" aria-label="WhatsApp">WA</a>
+          </div>
+        </div>
+        <QuestionSection />
+      </div>
+      <WholesaleCallout />
+    </section>
+  );
+}
+
+function WholesaleCallout() {
+  return (
+    <section id="wholesale" className="wholesale-callout">
+      <div><p className="section-kicker">Для бизнеса</p><h2>Оптовые заказы и покупка для юридических лиц</h2><p>Напишите нам список товаров и реквизиты организации. Менеджер уточнит условия и выставит счёт для безналичной оплаты.</p></div>
+      <Link className="btn btn--light" to="/contacts">Обсудить оптовый заказ</Link>
+    </section>
   );
 }
 
@@ -160,6 +228,12 @@ function QuantityPicker({ value, onChange }) {
   );
 }
 
+function DetailList({ text }) {
+  const items = String(text || "").split(/\r?\n/).map((item) => item.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+  if (!items.length) return null;
+  return <ul>{items.map((item) => <li key={item}>{item}</li>)}</ul>;
+}
+
 function ProductPage() {
   const { id } = useParams();
   const { products, addToCart } = useStore();
@@ -168,45 +242,97 @@ function ProductPage() {
   const [activeImage, setActiveImage] = useState("");
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const [zoomOpen, setZoomOpen] = useState(false);
 
   useEffect(() => {
     setActiveImage(images[0] || "");
+    setZoomOpen(false);
+    setAdded(false);
   }, [images]);
 
+  useEffect(() => {
+    if (!zoomOpen) return undefined;
+    const close = (event) => { if (event.key === "Escape") setZoomOpen(false); };
+    document.addEventListener("keydown", close);
+    document.body.classList.add("modal-open");
+    return () => { document.removeEventListener("keydown", close); document.body.classList.remove("modal-open"); };
+  }, [zoomOpen]);
+
   if (!product) return <p>Товар не найден.</p>;
+  const colors = Array.isArray(product.colors) ? product.colors : [];
+  const related = products
+    .filter((item) => item.id !== product.id && (item.categoryId ?? item.category_id) === (product.categoryId ?? product.category_id))
+    .slice(0, 4);
   return (
-    <section className="product">
-      <div className="product-gallery">
-        <img className="product-gallery__main" src={activeImage || images[0]} alt={product.name} />
-        {images.length > 1 && (
-          <div className="product-gallery__thumbs">
-            {images.map((src, index) => (
-              <button key={src + index} type="button" className={src === activeImage ? "is-active" : ""} onClick={() => setActiveImage(src)}>
-                <img src={src} alt={`${product.name} фото ${index + 1}`} />
-              </button>
-            ))}
-          </div>
-        )}
-        {product.videoUrl && (
-          <div className="product-video">
-            {/\.(mp4|webm|ogg)(\?.*)?$/i.test(product.videoUrl)
-              ? <video src={product.videoUrl} controls />
-              : <iframe src={product.videoUrl} title={`Видео ${product.name}`} loading="lazy" allowFullScreen />}
-          </div>
-        )}
-      </div>
-      <div className="product-info">
-        <h1>{product.name}</h1>
-        <DescriptionText text={product.description} />
-        <PriceBlock product={product} large />
-        <div className="product-buy">
-          <QuantityPicker value={qty} onChange={setQty} />
-          <button className="btn" type="button" onClick={() => { addToCart(product, qty); setAdded(true); }}>В корзину</button>
+    <>
+      <nav className="breadcrumbs" aria-label="Хлебные крошки"><Link to="/">Каталог</Link><span>/</span><span>{product.name}</span></nav>
+      <section className="product">
+        <div className="product-gallery">
+          <button className="product-gallery__zoom" type="button" onClick={() => setZoomOpen(true)} aria-label="Увеличить изображение">
+            <img className="product-gallery__main" src={activeImage || images[0]} alt={product.name} />
+            <span aria-hidden="true">Увеличить ↗</span>
+          </button>
+          {images.length > 1 && (
+            <div className="product-gallery__thumbs" aria-label="Фотографии товара">
+              {images.map((src, index) => (
+                <button key={src + index} type="button" className={src === activeImage ? "is-active" : ""} onClick={() => setActiveImage(src)} aria-label={`Показать фото ${index + 1}`}>
+                  <img src={src} alt="" />
+                </button>
+              ))}
+            </div>
+          )}
+          {product.videoUrl && (
+            <div className="product-video">
+              {/\.(mp4|webm|ogg|ogv|mov)(\?.*)?$/i.test(product.videoUrl) || String(product.videoUrl).startsWith("data:video/")
+                ? <video src={product.videoUrl} controls preload="metadata" />
+                : <iframe src={product.videoUrl} title={`Видео ${product.name}`} loading="lazy" allowFullScreen />}
+            </div>
+          )}
         </div>
-        {added && <p className="success-text">Товар добавлен в корзину.</p>}
-        <MarketplaceLinks product={product} />
-      </div>
-    </section>
+        <div className="product-info">
+          <p className="product-info__eyebrow">Дверная фурнитура Regola</p>
+          <h1>{product.name}</h1>
+          <PriceBlock product={product} large />
+          {colors.length > 0 && (
+            <div className="product-colors"><b>Доступные цвета</b><div>{colors.map((color) => <span key={color}>{color}</span>)}</div></div>
+          )}
+          <div className="product-buy">
+            <QuantityPicker value={qty} onChange={setQty} />
+            <button className="btn btn--buy" type="button" onClick={() => { addToCart(product, qty); setAdded(true); }}>Добавить в корзину</button>
+          </div>
+          {added && (
+            <div className="cart-success" role="status"><span>Товар добавлен в корзину</span><Link to="/cart">Перейти к оформлению</Link></div>
+          )}
+          <div className="product-assurance">
+            <span><b>Онлайн-оплата</b>Защищённая форма Т‑Банка</span>
+            <span><b>Доставка</b>СДЭК до ПВЗ или курьером</span>
+            <span><b>Гарантия</b>1 год на продукцию Regola</span>
+          </div>
+          <MarketplaceLinks product={product} />
+        </div>
+      </section>
+
+      <section className="product-details" aria-label="Информация о товаре">
+        <article className="product-detail product-detail--wide"><h2>Описание</h2><DescriptionText text={product.description} /></article>
+        {product.specifications && <article className="product-detail"><h2>Характеристики</h2><DetailList text={product.specifications} /></article>}
+        {product.packageContents && <article className="product-detail"><h2>Комплектация</h2><DetailList text={product.packageContents} /></article>}
+        <article className="product-detail"><h2>Доставка и гарантия</h2><p>Доставка выполняется службой СДЭК до пункта выдачи или курьером. Срок и стоимость рассчитываются при оформлении. Гарантия на товар — 1 год.</p></article>
+      </section>
+
+      {related.length > 0 && (
+        <section className="related-products" aria-labelledby="related-heading">
+          <PageTitle id="related-heading">Похожие товары</PageTitle>
+          <ProductGrid products={related} />
+        </section>
+      )}
+
+      {zoomOpen && (
+        <div className="image-modal" role="dialog" aria-modal="true" aria-label="Увеличенное изображение" onClick={() => setZoomOpen(false)}>
+          <button type="button" onClick={() => setZoomOpen(false)} aria-label="Закрыть">×</button>
+          <img src={activeImage || images[0]} alt={product.name} onClick={(event) => event.stopPropagation()} />
+        </div>
+      )}
+    </>
   );
 }
 
@@ -278,6 +404,12 @@ function CartPage() {
       : paymentResult === "fail" ? "Оплата не завершена. Свяжитесь с нами или оформите заказ повторно." : ""
   );
   const orderTotal = cartTotal + Number(deliveryEstimate?.deliveryPrice || 0);
+
+  useEffect(() => {
+    if (paymentResult !== "success") return;
+    clearCart();
+    sessionStorage.removeItem("regola_pending_order");
+  }, [paymentResult]);
 
   useEffect(() => {
     setCitySuggestions([]);
@@ -359,14 +491,12 @@ function CartPage() {
     try {
       const order = await sendCheckout({
         ...form,
+        paymentMethod: "online",
         items: cartItems.map((item) => ({ productId: item.id, qty: item.qty })),
       });
-      clearCart();
-      setForm({ name: "", phone: "", email: "", city: "", address: "", deliveryMethod: "СДЭК до ПВЗ", paymentMethod: "online", cdekCityCode: null, deliveryPointCode: "", cityFiasId: "", addressFiasId: "", comment: "" });
-      setDeliveryEstimate(null);
-      setDeliveryPoints([]);
       if (order.paymentUrl) {
         setStatus("Переходим на защищённую платёжную форму T-Банка...");
+        sessionStorage.setItem("regola_pending_order", String(order.id));
         window.location.assign(order.paymentUrl);
         return;
       }
@@ -374,11 +504,7 @@ function CartPage() {
         setStatus(`Заказ №${order.id} создан, но платёжная форма T-Банка не открылась. ${order.paymentError || "Мы свяжемся с вами для завершения оплаты."}`);
         return;
       }
-      if (order.paymentMethod === "cod") {
-        setStatus("Заказ принят. Оплата будет произведена при получении отправления СДЭК.");
-      } else {
-        setStatus("Заказ отправлен. Мы подтвердим доставку и направим данные для оплаты.");
-      }
+      setStatus(`Заказ №${order.id} создан, но платёжная форма не открылась. Попробуйте ещё раз или напишите нам.`);
     } catch (error) {
       setStatus(error.message || "Не удалось отправить заказ. Попробуйте ещё раз.");
     } finally {
@@ -421,7 +547,7 @@ function CartPage() {
           </div>
           <form className="form checkout-form" onSubmit={submit} onInvalid={showValidationError}>
             <h2>Оформление заказа</h2>
-            <p>Стоимость заказа рассчитывается сервером. Онлайн-оплата проходит на защищённой форме T-Банка, доставка — через СДЭК.</p>
+            <p>После проверки данных откроется защищённая платёжная форма Т‑Банка. Для оптовой покупки или счёта на юридическое лицо <Link to="/contacts">напишите нам</Link>.</p>
             <input required autoComplete="name" placeholder="Ваше имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <input required type="tel" inputMode="tel" autoComplete="tel" placeholder="Телефон: +7 999 123-45-67" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             <input type="email" autoComplete="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -441,7 +567,6 @@ function CartPage() {
               <select value={form.deliveryMethod} onChange={(e) => { setForm({ ...form, deliveryMethod: e.target.value, address: "", addressFiasId: "", cdekCityCode: null, deliveryPointCode: "" }); setDeliveryEstimate(null); setDeliveryPoints([]); }}>
                 <option>СДЭК до ПВЗ</option>
                 <option>СДЭК курьером</option>
-                <option>Почта России</option>
               </select>
             </div>
             {form.deliveryMethod === "СДЭК до ПВЗ" && deliveryPoints.length > 0 && (
@@ -465,12 +590,11 @@ function CartPage() {
               </div>
             )}
             {commerce.addressSuggestionsEnabled && suggestionError && <p className="form-hint suggestion-error">{suggestionError}</p>}
-            <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
-              <option value="invoice">Счёт на оплату</option>
-              <option value="online" disabled={!commerce.tbankEnabled}>Онлайн-оплата через T-Банк{commerce.tbankEnabled ? "" : " — подключается"}</option>
-              <option value="cod">Оплата при получении через СДЭК{commerce.cdekApiEnabled ? "" : " — после подтверждения"}</option>
-            </select>
-            <button type="button" onClick={estimateDelivery}>Рассчитать СДЭК</button>
+            <div className={commerce.tbankEnabled ? "payment-choice is-ready" : "payment-choice"}>
+              <span aria-hidden="true">✓</span>
+              <div><b>Онлайн-оплата через Т‑Банк</b><small>{commerce.tbankLive ? "Боевой терминал · защищённое соединение" : commerce.tbankEnabled ? "Тестовый терминал · реальные списания отключены" : "Временно недоступна"}</small></div>
+            </div>
+            <button type="button" onClick={estimateDelivery}>Рассчитать доставку СДЭК</button>
             {deliveryEstimate && (
               <p className="delivery-estimate">
                 {deliveryEstimate.tariff}: {formatRub(deliveryEstimate.deliveryPrice)} ₽, {deliveryEstimate.minDays}–{deliveryEstimate.maxDays} дн.
@@ -478,7 +602,7 @@ function CartPage() {
               </p>
             )}
             <textarea placeholder="Комментарий к заказу" value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} />
-            <button className="btn" type="submit" disabled={isSubmitting}>{isSubmitting ? "Отправляем…" : "Отправить заказ"}</button>
+            <button className="btn btn--checkout" type="submit" disabled={isSubmitting || !commerce.tbankEnabled}>{isSubmitting ? "Создаём платёж…" : `Перейти к оплате · ${formatRub(orderTotal)} ₽`}</button>
             {status && <p className="form-hint checkout-status" role="status" aria-live="polite">{status}</p>}
           </form>
         </>
@@ -521,6 +645,9 @@ function productToAdminForm(p) {
     price: p.price,
     categoryId: p.categoryId ?? p.category_id ?? 1,
     description: p.description,
+    specifications: p.specifications || "",
+    packageContents: p.packageContents ?? p.package_contents ?? "",
+    colorsText: Array.isArray(p.colors) ? p.colors.join("\n") : "",
     images: productImages(p),
     imageUrl: "",
     videoUrl: p.videoUrl ?? p.video_url ?? "",
@@ -530,7 +657,7 @@ function productToAdminForm(p) {
   };
 }
 
-const EMPTY_ADMIN_FORM = { id: null, name: "", price: "", categoryId: 1, description: "", images: [], imageUrl: "", videoUrl: "", ozonUrl: "", wbUrl: "", ymUrl: "" };
+const EMPTY_ADMIN_FORM = { id: null, name: "", price: "", categoryId: 1, description: "", specifications: "", packageContents: "", colorsText: "", images: [], imageUrl: "", videoUrl: "", ozonUrl: "", wbUrl: "", ymUrl: "" };
 
 const MESSAGE_STATUS_LABELS = {
   new: "новое",
@@ -569,33 +696,13 @@ function messageTypeLabel(type) {
   return "обращение";
 }
 
-function fileToOptimizedDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        const maxSide = 1600;
-        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(img.width * scale));
-        canvas.height = Math.max(1, Math.round(img.height * scale));
-        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.86));
-      };
-      img.src = String(reader.result || "");
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 function AdminPage() {
-  const { user, isAdminSessionValid, products, categories, upsertProduct, deleteProduct, orders, messages, updateOrderStatus, updateMessage, createCdekShipment, refreshCdekShipment, commerce } = useStore();
+  const { user, isAdminSessionValid, products, categories, upsertProduct, uploadMedia, deleteProduct, orders, messages, updateOrderStatus, updateMessage, createCdekShipment, refreshCdekShipment, commerce } = useStore();
   const [form, setForm] = useState(EMPTY_ADMIN_FORM);
   const [adminQuery, setAdminQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [statusText, setStatusText] = useState("");
   if (!user?.isAdmin || !isAdminSessionValid) return <Navigate to={ADMIN_ENTRY_PRIMARY} replace />;
 
@@ -610,11 +717,21 @@ function AdminPage() {
     setStatusText("");
   };
 
-  const addImages = (items) => setForm((prev) => ({ ...prev, images: [...new Set([...prev.images, ...items])].slice(0, 20) }));
-  const uploadImages = (files) => {
+  const addImages = (items) => setForm((prev) => ({ ...prev, images: [...new Set([...prev.images, ...items])].slice(0, 12) }));
+  const uploadImages = async (files) => {
     const imageFiles = Array.from(files || []).filter((file) => file.type.startsWith("image/"));
     if (!imageFiles.length) return;
-    Promise.all(imageFiles.map(fileToOptimizedDataUrl)).then(addImages).catch(() => alert("Не удалось загрузить изображения"));
+    if (imageFiles.some((file) => file.size > 12 * 1024 * 1024)) return alert("Каждое фото должно быть не больше 12 МБ");
+    setIsUploadingImages(true);
+    try {
+      const urls = await Promise.all(imageFiles.slice(0, 12).map((file) => uploadMedia(file)));
+      addImages(urls);
+      setStatusText(`Загружено фото: ${urls.length}. Сохраните товар, чтобы применить изменения.`);
+    } catch (error) {
+      alert(error.message || "Не удалось загрузить изображения");
+    } finally {
+      setIsUploadingImages(false);
+    }
   };
   const addImageUrl = () => {
     const url = form.imageUrl.trim();
@@ -633,6 +750,21 @@ function AdminPage() {
     });
   };
   const makeMainImage = (src) => setForm((prev) => ({ ...prev, images: [src, ...prev.images.filter((item) => item !== src)] }));
+  const uploadVideo = async (files) => {
+    const file = Array.from(files || []).find((item) => item.type.startsWith("video/"));
+    if (!file) return;
+    if (file.size > 30 * 1024 * 1024) return alert("Видео должно быть не больше 30 МБ");
+    setIsUploadingVideo(true);
+    try {
+      const url = await uploadMedia(file);
+      setForm((prev) => ({ ...prev, videoUrl: url }));
+      setStatusText("Видео загружено. Сохраните товар, чтобы применить изменения.");
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setIsUploadingVideo(false);
+    }
+  };
   const editProduct = (product) => {
     setForm(productToAdminForm(product));
     setStatusText("Режим редактирования: внесите изменения и нажмите «Сохранить».");
@@ -658,6 +790,7 @@ function AdminPage() {
         price: Number(form.price) || 0,
         categoryId: Number(form.categoryId),
         image: form.images[0] || "",
+        colors: form.colorsText.split(/\r?\n|,|;/).map((item) => item.trim()).filter(Boolean),
       });
       setStatusText(form.id ? "Товар сохранён." : "Товар добавлен.");
       setForm(EMPTY_ADMIN_FORM);
@@ -689,6 +822,13 @@ function AdminPage() {
         <a className="btn-outline" href="/" target="_blank" rel="noreferrer">Открыть сайт</a>
       </div>
 
+      <div className="admin-commerce-status" aria-label="Состояние интеграций">
+        <span className={commerce.tbankLive ? "is-ok" : "is-warning"}>Т‑Банк: {commerce.tbankLive ? "боевой режим" : commerce.tbankEnabled ? "тестовый режим" : "не настроен"}</span>
+        <span className={commerce.cdekApiEnabled ? "is-ok" : "is-warning"}>СДЭК API: {commerce.cdekApiEnabled ? "подключён" : "не настроен"}</span>
+        <span className={commerce.cdekOrderCreationEnabled ? "is-ok" : "is-warning"}>Отправления: {commerce.cdekOrderCreationEnabled ? "можно создавать" : "нужен ПВЗ отправителя"}</span>
+        <span className={commerce.addressSuggestionsEnabled ? "is-ok" : "is-warning"}>Адреса: {commerce.addressSuggestionsEnabled ? "подключены" : "не настроены"}</span>
+      </div>
+
       {statusText && <p className="admin-status">{statusText}</p>}
 
       <h2>{form.id ? "Редактирование товара" : "Новый товар"}</h2>
@@ -697,6 +837,11 @@ function AdminPage() {
         <input required type="number" min="1" step="1" placeholder="Цена, ₽" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
         <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
         <textarea required rows="9" placeholder={"Описание. Можно писать абзацы и списки:\n\nПервый абзац\n\n- пункт\n- пункт"} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+        <div className="admin-product-fields">
+          <label><b>Характеристики</b><textarea rows="6" placeholder={"Каждая характеристика с новой строки:\nМатериал — алюминиевый сплав\nТип механизма — защёлка"} value={form.specifications} onChange={(e) => setForm({ ...form, specifications: e.target.value })} /></label>
+          <label><b>Комплектация</b><textarea rows="6" placeholder={"Каждый элемент с новой строки:\nРучка — 2 шт.\nКрепёжный комплект\nИнструкция"} value={form.packageContents} onChange={(e) => setForm({ ...form, packageContents: e.target.value })} /></label>
+        </div>
+        <label className="admin-fieldset"><b>Доступные цвета</b><textarea rows="4" placeholder={"Один цвет с новой строки:\nЧёрный матовый\nХром\nБелый"} value={form.colorsText} onChange={(e) => setForm({ ...form, colorsText: e.target.value })} /></label>
 
         <div className="admin-fieldset">
           <b>Фото товара</b>
@@ -705,7 +850,8 @@ function AdminPage() {
             <input placeholder="URL изображения" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} />
             <button type="button" onClick={addImageUrl}>Добавить URL</button>
           </div>
-          <input type="file" accept="image/*" multiple onChange={(e) => uploadImages(e.target.files)} />
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={(e) => uploadImages(e.target.files)} disabled={isUploadingImages} />
+          {isUploadingImages && <p className="form-hint">Загружаем фотографии…</p>}
           {form.images.length > 0 && (
             <div className="admin-image-grid">
               {form.images.map((src, index) => (
@@ -726,7 +872,11 @@ function AdminPage() {
 
         <div className="admin-fieldset">
           <b>Видео</b>
-          <input type="url" placeholder="Ссылка на видео: mp4/webm или iframe-ссылка" value={form.videoUrl} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} />
+          <p className="form-hint">Загрузите MP4, WebM, OGG или MOV до 30 МБ либо вставьте ссылку.</p>
+          <input type="file" accept="video/mp4,video/webm,video/ogg,video/quicktime" onChange={(e) => uploadVideo(e.target.files)} disabled={isUploadingVideo} />
+          {isUploadingVideo && <p className="form-hint">Загружаем видео…</p>}
+          <input type="text" inputMode="url" placeholder="Или ссылка на видео" value={form.videoUrl} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} />
+          {form.videoUrl && <button type="button" onClick={() => setForm({ ...form, videoUrl: "" })}>Удалить видео</button>}
         </div>
 
         <div className="admin-fieldset">
@@ -859,6 +1009,10 @@ export default function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/payment" element={<PaymentDeliveryPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/guarantees" element={<GuaranteesPage />} />
+        <Route path="/contacts" element={<ContactsPage />} />
         <Route path="/product/:id" element={<ProductPage />} />
         <Route path="/cart" element={<CartPage />} />
         {ADMIN_ENTRY_ROUTES.map((path) => <Route key={path} path={path} element={<AdminLoginPage />} />)}

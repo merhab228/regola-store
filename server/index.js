@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import db from "./db.js";
@@ -17,6 +18,8 @@ import { createDadataClient, DadataError } from "./dadata.js";
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, "..", "dist");
+const uploadDir = process.env.UPLOAD_DIR || (process.env.NODE_ENV === "production" ? "/app/data/uploads" : path.join(__dirname, "uploads"));
+fs.mkdirSync(uploadDir, { recursive: true });
 app.disable("x-powered-by");
 if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
 
@@ -46,6 +49,7 @@ if (ADMIN_ACCESS_KEY === "change-me" && process.env.NODE_ENV === "production") {
 app.use(cors());
 app.use(express.json({ limit: "35mb" }));
 app.use(express.urlencoded({ extended: false, limit: "1mb" }));
+app.use("/uploads", express.static(uploadDir, { maxAge: "365d", immutable: true }));
 
 app.get("/api/health", (_, res) => res.json({ ok: true }));
 
@@ -53,6 +57,7 @@ app.get("/api/commerce/config", (_, res) => {
   res.json({
     tbankEnabled: tbankClient.isConfigured,
     tbankMode: tbankClient.config.mode,
+    tbankLive: tbankClient.config.live,
     cdekApiEnabled: cdekClient.isConfigured,
     cdekMode: cdekClient.config.mode,
     cdekOrderCreationEnabled: cdekClient.canCreateOrders,
@@ -317,19 +322,52 @@ app.patch("/api/admin/messages/:id", authRequired, adminRequired, (req, res) => 
   res.json(mapSiteMessage(row));
 });
 
+app.post(
+  "/api/admin/uploads",
+  authRequired,
+  adminRequired,
+  express.raw({ type: ["image/*", "video/*"], limit: "30mb" }),
+  (req, res) => {
+    const contentType = String(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+    const extensions = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "video/mp4": "mp4",
+      "video/webm": "webm",
+      "video/ogg": "ogg",
+      "video/quicktime": "mov",
+    };
+    const extension = extensions[contentType];
+    if (!extension || !Buffer.isBuffer(req.body) || req.body.length === 0) {
+      return res.status(400).json({ message: "Поддерживаются JPG, PNG, WebP, GIF, MP4, WebM, OGG и MOV" });
+    }
+    const filename = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}.${extension}`;
+    fs.writeFileSync(path.join(uploadDir, filename), req.body, { flag: "wx" });
+    return res.status(201).json({ url: `/uploads/${filename}`, size: req.body.length, contentType });
+  }
+);
+
 app.post("/api/admin/products", authRequired, adminRequired, (req, res) => {
   const product = normalizeProductPayload(req.body);
   if (!product.price) return res.status(400).json({ message: "Укажите цену товара" });
   if (!product.image) return res.status(400).json({ message: "Добавьте хотя бы одно фото товара" });
 
   const result = db.prepare(`
-    INSERT INTO products (name, price, category_id, description, image, images_json, stock, views, created_at, ozon_url, wb_url, ym_url, video_url)
-    VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?)
+    INSERT INTO products (
+      name, price, category_id, description, specifications, package_contents, colors_json,
+      image, images_json, stock, views, created_at, ozon_url, wb_url, ym_url, video_url
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?)
   `).run(
     product.name,
     product.price,
     product.categoryId,
     product.description,
+    product.specifications,
+    product.packageContents,
+    product.colorsJson,
     product.image,
     product.imagesJson,
     new Date().toISOString(),
@@ -349,7 +387,8 @@ app.put("/api/admin/products/:id", authRequired, adminRequired, (req, res) => {
 
   db.prepare(`
     UPDATE products
-    SET name = ?, price = ?, category_id = ?, description = ?, image = ?, images_json = ?, stock = 0,
+    SET name = ?, price = ?, category_id = ?, description = ?, specifications = ?, package_contents = ?, colors_json = ?,
+        image = ?, images_json = ?, stock = 0,
         ozon_url = ?, wb_url = ?, ym_url = ?, video_url = ?
     WHERE id = ?
   `).run(
@@ -357,6 +396,9 @@ app.put("/api/admin/products/:id", authRequired, adminRequired, (req, res) => {
     product.price,
     product.categoryId,
     product.description,
+    product.specifications,
+    product.packageContents,
+    product.colorsJson,
     product.image,
     product.imagesJson,
     product.ozonUrl,
@@ -391,6 +433,9 @@ function normalizeProductPayload(body) {
     price: normalizePrice(body.price),
     categoryId: Number(body.categoryId) || 1,
     description: String(body.description || "").trim(),
+    specifications: String(body.specifications || "").trim().slice(0, 5000),
+    packageContents: String(body.packageContents ?? body.package_contents ?? "").trim().slice(0, 5000),
+    colorsJson: JSON.stringify(normalizeStringList(body.colors, 20)),
     image: images[0] || "",
     imagesJson: JSON.stringify(images),
     wbUrl: normalizeUrl(body.wbUrl),
@@ -398,6 +443,11 @@ function normalizeProductPayload(body) {
     ymUrl: normalizeUrl(body.ymUrl),
     videoUrl: normalizeUrl(body.videoUrl),
   };
+}
+
+function normalizeStringList(value, limit) {
+  const source = Array.isArray(value) ? value : String(value || "").split(/[\n,;]+/);
+  return [...new Set(source.map((item) => String(item || "").trim()).filter(Boolean))].slice(0, limit);
 }
 
 function normalizeImages(images, image) {

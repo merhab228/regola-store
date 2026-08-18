@@ -16,3 +16,9 @@ server/regola.db-shm
 
 # Временные SSH-ключи деплоя
 regola_vps_key*
+
+# Ignore extracted docx text and extraction script
+*.docx
+*.docx.txt
+scripts/extract_docx.py
+docs/*.docx

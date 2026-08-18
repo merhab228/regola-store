@@ -25,7 +25,7 @@ export function StoreProvider({ children }) {
   const [categories, setCategories] = useState([]);
   const [orders, setOrders] = useState([]);
   const [messages, setMessages] = useState([]);
-  const [commerce, setCommerce] = useState({ tbankEnabled: false, cdekApiEnabled: false, cdekOrderCreationEnabled: false, addressSuggestionsEnabled: false });
+  const [commerce, setCommerce] = useState({ tbankEnabled: false, tbankLive: false, cdekApiEnabled: false, cdekOrderCreationEnabled: false, addressSuggestionsEnabled: false });
   const [cartItems, setCartItems] = useState(() => load(STORAGE_KEYS.cart, []));
   const [token, setToken] = useState(() => load(STORAGE_KEYS.token, null));
   const [user, setUser] = useState(null);
@@ -122,6 +122,24 @@ export function StoreProvider({ children }) {
     if (!token) return;
     await authedApi("/api/admin/products/" + id, { method: "DELETE" });
     setProducts((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const uploadMedia = async (file) => {
+    if (!token) throw new Error("Нет сессии администратора");
+    const response = await fetch("/api/admin/uploads", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": file.type || "application/octet-stream",
+      },
+      body: file,
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      if (response.status === 401) logout();
+      throw new Error(result.message || "Не удалось загрузить файл");
+    }
+    return result.url;
   };
 
   const updateOrderStatus = async (orderId, status) => {
@@ -224,6 +242,7 @@ export function StoreProvider({ children }) {
         estimateCdekDelivery,
         suggestAddress,
         upsertProduct,
+        uploadMedia,
         deleteProduct,
         updateOrderStatus,
         createCdekShipment,

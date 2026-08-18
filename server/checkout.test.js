@@ -79,7 +79,7 @@ function checkoutBody(overrides = {}) {
     city: "Санкт-Петербург",
     address: "Проспект Героев, 26",
     deliveryMethod: "СДЭК до ПВЗ",
-    paymentMethod: "invoice",
+    paymentMethod: "online",
     comment: "Позвонить перед доставкой",
     items: [{ productId: 1, qty: 2 }],
     ...overrides,
@@ -170,6 +170,20 @@ test("checkout customer fields enforce server-side types and length limits", asy
       database.close();
     });
   }
+});
+
+test("checkout accepts only online payment and CDEK delivery", () => {
+  const database = createDatabase();
+  insertProduct(database);
+  for (const body of [
+    checkoutBody({ paymentMethod: "invoice" }),
+    checkoutBody({ paymentMethod: "cod" }),
+    checkoutBody({ deliveryMethod: "Почта России" }),
+  ]) {
+    assert.throws(() => createCheckoutRecord(database, body), CheckoutValidationError);
+  }
+  assert.equal(database.prepare("SELECT COUNT(*) AS count FROM orders").get().count, 0);
+  database.close();
 });
 
 test("unknown, inactive and incorrectly priced products cannot create an order", async (t) => {

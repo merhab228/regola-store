@@ -1,8 +1,14 @@
 const MARKET_LINKS = {
   wb: "https://www.wildberries.ru/seller/782141",
   ozon: "https://www.ozon.ru/seller/torretta/",
-  ym: "https://market.yandex.ru/business--regola/203997184?generalContext=t%3DshopInShop%3Bi%3D1%3Bbi%3D203997184%3B&rs=eJwz4v_EyMPBKLDwEKsEg8az06wAJY8EuA%2C%2C&searchContext=sins_ctx",
+  ym: "https://market.yandex.ru/business--regola/203997184",
 };
+
+const CONTACT_LINKS = [
+  ["https://t.me/", "TG", "Telegram"],
+  ["https://max.ru/", "MAX", "MAX"],
+  ["https://wa.me/79829412000", "WA", "WhatsApp"],
+];
 
 export default function BottomContacts() {
   return (
@@ -12,7 +18,7 @@ export default function BottomContacts() {
           <img src="/regola.jpg" alt="" />
         </div>
         <div className="site-footer__info">
-          <p>Regola — магазин дверных ручек</p>
+          <p>Regola — интернет-магазин дверных ручек</p>
           <p>г. Санкт-Петербург, проспект Героев, д. 26</p>
           <p>ИНН / КПП 720324917448</p>
           <p>ОГРН 316723200095576</p>
@@ -22,12 +28,11 @@ export default function BottomContacts() {
             <a href={MARKET_LINKS.ym} target="_blank" rel="noopener noreferrer">Яндекс Маркет</a>
           </nav>
         </div>
-        <div className="site-footer__contacts">
-          <a className="site-footer__phone" href="tel:+79829412000">+7 982 941-20-00</a>
-          <a href="https://t.me/" target="_blank" rel="noopener noreferrer">Telegram</a>
-          <a href="https://wa.me/79829412000" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-          <a href="https://max.ru/" target="_blank" rel="noopener noreferrer">MAX</a>
-        </div>
+        <nav className="site-footer__contacts" aria-label="Написать нам">
+          {CONTACT_LINKS.map(([href, icon, label]) => (
+            <a key={label} href={href} target="_blank" rel="noopener noreferrer" aria-label={label} title={label}>{icon}</a>
+          ))}
+        </nav>
       </div>
     </footer>
   );

@@ -45,6 +45,9 @@ CREATE TABLE IF NOT EXISTS products (
   ym_url TEXT,
   video_url TEXT,
   images_json TEXT,
+  specifications TEXT,
+  package_contents TEXT,
+  colors_json TEXT,
   is_active INTEGER NOT NULL DEFAULT 1
 );
 
@@ -114,6 +117,9 @@ for (const [column, type] of [
   ["ym_url", "TEXT"],
   ["video_url", "TEXT"],
   ["images_json", "TEXT"],
+  ["specifications", "TEXT"],
+  ["package_contents", "TEXT"],
+  ["colors_json", "TEXT"],
   ["is_active", "INTEGER NOT NULL DEFAULT 1"],
 ]) {
   if (!productColNames.has(column)) db.exec(`ALTER TABLE products ADD COLUMN ${column} ${type}`);

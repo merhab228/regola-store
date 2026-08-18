@@ -120,11 +120,12 @@ function readConfig(env) {
     terminalKey && password && publicBaseUrl.startsWith("https://")
     && ALLOWED_TAXATION.has(taxation) && ALLOWED_TAX.has(itemTax) && ALLOWED_TAX.has(deliveryTax)
   );
-  return { mode, apiUrl, publicBaseUrl, terminalKey, password, taxation, itemTax, deliveryTax, isConfigured };
+  const isLive = Boolean(isConfigured && mode === "production" && !demoTerminal);
+  return { mode, apiUrl, publicBaseUrl, terminalKey, password, taxation, itemTax, deliveryTax, demoTerminal, isConfigured, isLive };
 }
 
 function publicConfig(config) {
-  return { provider: "tbank", mode: config.mode, enabled: config.isConfigured };
+  return { provider: "tbank", mode: config.mode, enabled: config.isConfigured, live: config.isLive, demoTerminal: config.demoTerminal };
 }
 
 function requireConfigured(config) {

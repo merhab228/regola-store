@@ -10,6 +10,16 @@ function parseImages(row) {
   }
 }
 
+function parseStringList(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map((item) => String(item || "").trim()).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
 /** @param {Record<string, unknown>} row */
 export function mapProduct(row) {
   const wbUrl = row.wb_url || "";
@@ -24,9 +34,14 @@ export function mapProduct(row) {
     categoryId: row.category_id,
     category_id: row.category_id,
     description: row.description,
+    specifications: row.specifications || "",
+    packageContents: row.package_contents || "",
+    package_contents: row.package_contents || "",
+    colors: parseStringList(row.colors_json),
     image: images[0] || row.image,
     images,
     imagesJson: row.images_json || "",
+    colorsJson: row.colors_json || "",
     stock: row.stock,
     views: row.views,
     createdAt: row.created_at,

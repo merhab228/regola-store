@@ -12,8 +12,8 @@ const CUSTOMER_LIMITS = Object.freeze({
   fiasId: 36,
 });
 
-const DELIVERY_METHODS = new Set(["СДЭК до ПВЗ", "СДЭК курьером", "Почта России"]);
-const PAYMENT_METHODS = new Set(["invoice", "online", "cod"]);
+const DELIVERY_METHODS = new Set(["СДЭК до ПВЗ", "СДЭК курьером"]);
+const PAYMENT_METHODS = new Set(["online"]);
 
 export class CheckoutValidationError extends Error {
   constructor(message) {
@@ -99,9 +99,6 @@ export function validateCheckoutCustomer(body) {
   }
   if (deliveryMethod === "СДЭК курьером" && !address) {
     throw new CheckoutValidationError("Для курьерской доставки укажите адрес");
-  }
-  if (deliveryMethod === "Почта России" && !address) {
-    throw new CheckoutValidationError("Для доставки Почтой России укажите адрес");
   }
   if (address && !/[\p{L}]/u.test(address)) {
     throw new CheckoutValidationError("Укажите корректный адрес");
@@ -353,9 +350,7 @@ export function buildDeliveryLabel(customer, deliveryPrice) {
 }
 
 export function buildPaymentLabel(method) {
-  if (method === "online") return "Онлайн-оплата после подключения эквайринга";
-  if (method === "invoice") return "Счёт на оплату";
-  if (method === "cod") return "Оплата при получении / по согласованию";
+  if (method === "online") return "Онлайн-оплата через Т-Банк";
   throw new CheckoutValidationError("Некорректный способ оплаты");
 }
 
@@ -409,8 +404,7 @@ function normalizeDeliveryEstimate(estimate) {
 
 function initialPaymentMeta(method) {
   if (method === "online") return { provider: "tbank", status: "pending" };
-  if (method === "cod") return { provider: "cdek", status: "awaiting_cod" };
-  return { provider: "manual", status: "awaiting_invoice" };
+  throw new CheckoutValidationError("Некорректный способ оплаты");
 }
 
 function safeMoneyAdd(a, b) {
