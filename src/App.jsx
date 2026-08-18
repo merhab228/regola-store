@@ -37,7 +37,7 @@ function MarketplaceLinks({ product, compact = false }) {
   return (
     <div className={"market-offers" + (compact ? " market-offers--compact" : "")}>
       {links.map(([label, badge, url]) => (
-        <a key={label} href={url} target="_blank" rel="noreferrer">
+        <a key={label} href={url} target="_blank" rel="noreferrer" aria-label={label}>
           <span>{label}</span>
           <b>{badge}</b>
         </a>
@@ -283,7 +283,7 @@ function ProductPage() {
             <div className="product-gallery__thumbs" aria-label="Фотографии товара">
               {images.map((src, index) => (
                 <button key={src + index} type="button" className={src === activeImage ? "is-active" : ""} onClick={() => setActiveImage(src)} aria-label={`Показать фото ${index + 1}`}>
-                  <img src={src} alt="" />
+                  <img src={src} alt={`Фото ${index + 1} — ${product.name}`} />
                 </button>
               ))}
             </div>
