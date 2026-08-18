@@ -342,6 +342,7 @@ textarea:focus {
   border: 2px solid var(--regola-navy);
   color: var(--regola-navy);
   background: transparent;
+  margin-top: 8px;
 }
 .btn-outline:hover {
   background: rgba(21, 39, 59, 0.06);
@@ -962,6 +963,18 @@ textarea:focus {
     font-size: 18px;
     margin: 8px 0 6px;
     line-height: 1.2;
+  }
+  .card__excerpt {
+    margin: 0 0 8px;
+    color: var(--regola-muted);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .card__specs {
+    margin: 0 0 10px;
+    font-size: 13px;
+    color: var(--regola-muted);
   }
   .market-offers--compact {
     display: flex;

@@ -216,6 +216,8 @@ function ProductGrid({ products }) {
         <article key={p.id} className="card">
           <Link className="card__image-link" to={"/product/" + p.id}><img src={productImages(p)[0]} alt={p.name} /></Link>
           <h3 className="card__title"><Link to={"/product/" + p.id}>{p.name}</Link></h3>
+          <p className="card__excerpt">{p.shortDescription ?? (String(p.description || "").split(/\n/)[0] || "")}</p>
+          {p.specifications && String(p.specifications).split(/\r?\n/).filter(Boolean).slice(0,1).map((s) => <p key={s} className="card__specs">{s.replace(/^[-•*]\s*/, "")}</p>)}
           <PriceBlock product={p} />
           <MarketplaceLinks product={p} compact={true} />
           <Link className="btn-outline" to={"/product/" + p.id}>Подробнее</Link>
