@@ -215,8 +215,9 @@ function ProductGrid({ products }) {
       {products.map((p) => (
         <article key={p.id} className="card">
           <Link className="card__image-link" to={"/product/" + p.id}><img src={productImages(p)[0]} alt={p.name} /></Link>
-          <h3><Link to={"/product/" + p.id}>{p.name}</Link></h3>
+          <h3 className="card__title"><Link to={"/product/" + p.id}>{p.name}</Link></h3>
           <PriceBlock product={p} />
+          <MarketplaceLinks product={p} compact={true} />
           <Link className="btn-outline" to={"/product/" + p.id}>Подробнее</Link>
         </article>
       ))}
@@ -314,7 +315,7 @@ function ProductPage() {
             <span><b>Доставка</b>СДЭК до ПВЗ или курьером</span>
             <span><b>Гарантия</b>1 год на продукцию Regola</span>
           </div>
-          <MarketplaceLinks product={product} />
+          <MarketplaceLinks product={product} compact={true} />
         </div>
       </section>
 

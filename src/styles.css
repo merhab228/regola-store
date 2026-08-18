@@ -955,6 +955,31 @@ textarea:focus {
   .grid .card {
     animation: motion-fade-up 0.5s var(--ease-out) both;
   }
+  .grid .card {
+    padding: 16px;
+  }
+  .card__title {
+    font-size: 18px;
+    margin: 8px 0 6px;
+    line-height: 1.2;
+  }
+  .market-offers--compact {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0 10px;
+  }
+  .market-offers--compact a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(21,39,59,0.04);
+    color: var(--regola-navy-deep);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+  }
   .grid .card:nth-child(1) {
     animation-delay: 0.04s;
   }
@@ -1787,11 +1812,26 @@ textarea:focus {
 }
 
 .market-offers--compact a {
-  padding: 8px 10px;
-  font-size: 12px;
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 10px;
 }
-
+.market-offers--compact a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(21,39,59,0.04);
+  color: var(--regola-navy-deep);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
 .product-video {
+.market-offers--compact a b {
+  font-weight: 900;
+  background: transparent;
+}
   margin-top: 18px;
   overflow: hidden;
   border-radius: 18px;
