@@ -6,7 +6,7 @@ import BottomContacts from "./BottomContacts";
 const NAV_LINKS = [
   ["/", "Каталог"],
   ["/payment", "Оплата и доставка"],
-  ["/about", "О нас"],
+  ["/about", "Цель компании"],
   ["/guarantees", "Гарантии"],
   ["/contacts", "Контакты"],
 ];
