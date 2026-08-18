@@ -1,0 +1,13 @@
+[Unit]
+Description=Regola Store Docker container
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker start -a regola
+ExecStop=/usr/bin/docker stop -t 10 regola
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
