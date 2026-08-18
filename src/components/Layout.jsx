@@ -20,7 +20,7 @@ export default function Layout({ children }) {
 
   useEffect(() => {
     setMenuOpen(false);
-    window.scrollTo({ top: 0, behavior: "instant" });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }, [location.pathname]);
 
   // Pulse the cart count when items are added to draw attention (mobile UX)
