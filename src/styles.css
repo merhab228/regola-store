@@ -1208,6 +1208,20 @@ textarea:focus {
   font-weight: 800;
   margin-bottom: 14px;
 }
+.site-footer__contacts .contact-icon {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  background: var(--regola-card);
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  color: var(--regola-navy-deep);
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(21,39,59,0.06);
+  border: 1px solid var(--regola-border);
+}
+.site-footer__contacts .contact-icon svg { width: 20px; height: 20px; }
 
 .nav-right a,
 .link-btn {
