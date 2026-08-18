@@ -90,6 +90,12 @@ function PaymentDeliveryPage() {
   return (
     <section className="content-page motion-in" aria-labelledby="payment-heading">
       <PageTitle id="payment-heading" eyebrow="Покупка напрямую у Regola">Оплата и доставка</PageTitle>
+      <div className="payment-hero">
+        <div className="payment-hero__content">
+          <p className="lead">Оплатить и получить — быстро и безопасно. На этой странице собрано всё про способы оплаты, доставку через СДЭК и альтернативные каналы покупки через маркетплейсы.</p>
+        </div>
+      </div>
+
       <div className="service-grid">
         <article className="service-card service-card--payment">
           <div className="service-card__icon" aria-hidden="true">₽</div>

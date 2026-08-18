@@ -49,6 +49,22 @@ h3 { font-size: clamp(18px, 2.2vw, 20px); line-height: 1.2; }
   margin: 0 auto;
   padding: 0 22px 30px;
 }
+
+.payment-hero {
+  display: grid;
+  align-items: center;
+  padding: 36px 22px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  background: linear-gradient(90deg, rgba(14,34,56,0.98), rgba(11,22,40,0.9));
+  color: #fff;
+}
+.payment-hero .lead {
+  margin: 0;
+  max-width: 880px;
+  font-size: 18px;
+  line-height: 1.6;
+}
 .header {
   background: var(--regola-navy);
   color: var(--regola-sand);
