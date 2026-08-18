@@ -22,3 +22,4 @@ regola_vps_key*
 *.docx.txt
 scripts/extract_docx.py
 docs/*.docx
+.codex-docx-review/
