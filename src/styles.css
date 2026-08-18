@@ -2052,6 +2052,10 @@ h3,
   animation: cart-pop 0.32s var(--ease-out);
 }
 
+.cart-link__count.is-pulse {
+  animation: cart-pop 0.36s var(--ease-out);
+}
+
 @keyframes cart-pop {
   from { transform: scale(0.5); }
   to { transform: scale(1); }

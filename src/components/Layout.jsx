@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useStore } from "../context/StoreContext";
 import BottomContacts from "./BottomContacts";
 
@@ -15,12 +15,24 @@ export default function Layout({ children }) {
   const { cartItems } = useStore();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cartPulse, setCartPulse] = useState(false);
   const cartCount = cartItems.reduce((sum, item) => sum + Number(item.qty || 0), 0);
 
   useEffect(() => {
     setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [location.pathname]);
+
+  // Pulse the cart count when items are added to draw attention (mobile UX)
+  const prevCountRef = useRef(cartCount);
+  useEffect(() => {
+    if (cartCount > prevCountRef.current) {
+      setCartPulse(true);
+      const t = setTimeout(() => setCartPulse(false), 350);
+      return () => clearTimeout(t);
+    }
+    prevCountRef.current = cartCount;
+  }, [cartCount]);
 
   return (
     <div className="page-shell">
@@ -40,7 +52,9 @@ export default function Layout({ children }) {
               <Link className="cart-link" to="/cart" aria-label={`Корзина, товаров: ${cartCount}`}>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.1 10.1a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 7H7M9.5 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm7 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" /></svg>
                 <span className="cart-link__label">Корзина</span>
-                <b className={cartCount ? "cart-link__count is-visible" : "cart-link__count"}>{cartCount}</b>
+                <b className={"cart-link__count" + (cartCount ? " is-visible" : "") + (cartPulse ? " is-pulse" : "")}>
+                  {cartCount}
+                </b>
               </Link>
               <button
                 type="button"
