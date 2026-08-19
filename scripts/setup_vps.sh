@@ -54,11 +54,22 @@ else
   echo "Repository already exists in $REPO_DIR"
 fi
 
-echo ">>> 7/8 Ensure deploy scripts are executable"
+echo ">>> 7/8 Initialize .env from template"
+if [ ! -f "$REPO_DIR/.env" ]; then
+  sudo -u "$DEPLOY_USER" cp "$REPO_DIR/.env.example" "$REPO_DIR/.env"
+  echo "Created $REPO_DIR/.env from template"
+  echo "⚠️  IMPORTANT: Edit $REPO_DIR/.env and fill production secrets:"
+  echo "   NODE_ENV, JWT_SECRET, ADMIN_ACCESS_KEY, ADMIN_LOGIN, ADMIN_PASSWORD, PUBLIC_BASE_URL"
+  echo "   For payment/delivery: TBANK_* and CDEK_* credentials"
+else
+  echo ".env already exists at $REPO_DIR/.env"
+fi
+
+echo ">>> 8/8 Ensure deploy scripts are executable"
 chown -R "$DEPLOY_USER":"$DEPLOY_USER" "$REPO_DIR"
 chmod +x "$REPO_DIR/scripts"/*.sh || true
 
-echo ">>> 8/8 Systemd unit (optional): installing deploy/regola.service"
+echo ">>> 9/9 Systemd unit (optional): installing deploy/regola.service"
 if [ -f "$REPO_DIR/deploy/regola.service" ]; then
   cp "$REPO_DIR/deploy/regola.service" /etc/systemd/system/regola.service
   systemctl daemon-reload
@@ -68,9 +79,16 @@ else
   echo "No deploy/regola.service found in repo — skipping unit install"
 fi
 
-echo "Setup complete. Next steps for operator:"
-echo " - Switch to $DEPLOY_USER and create /opt/regola/.env from .env.example and set proper secrets"
-echo " - Run as $DEPLOY_USER: cd /opt/regola && bash scripts/deploy.sh"
-echo " - Optionally run: sudo systemctl start regola.service"
+echo "Setup complete. Next steps:"
+echo " 1. Edit .env with production secrets:"
+echo "    nano /opt/regola/.env"
+echo " 2. Run deploy (will auto-create container):"
+echo "    cd /opt/regola && sudo -u deploy bash scripts/deploy.sh"
+echo " 3. Or use systemd:"
+echo "    sudo systemctl start regola.service"
+echo " 4. Verify health:"
+echo "    curl http://127.0.0.1:4000/api/health"
+echo ""
+echo "For auto-deploy on push: add GitHub Secrets (VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_SSH_PORT)"
 
 exit 0

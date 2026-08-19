@@ -2,17 +2,30 @@
 
 Домен: `regola.shop`. Приложение работает в Docker на `127.0.0.1:4000`, Nginx принимает HTTP/HTTPS, база хранится в `/opt/regola-data/regola.db`.
 
-## Первичная установка
+## Быстрый старт (за 5 минут)
+
+### 1. Инициализация VPS (один раз)
+
+Запусти на VPS как root:
 
 ```bash
-apt update
-apt install -y git docker.io nginx certbot python3-certbot-nginx
-systemctl enable --now docker nginx
+# Клонируй репо и запусти автоматическую установку
 git clone https://github.com/merhab228/regola-store /opt/regola
-mkdir -p /opt/regola-data
 cd /opt/regola
-cp .env.example .env
-nano .env
+# Передай публичный SSH-ключ deploy-пользователя (если нужен auto-deploy)
+DEPLOY_PUBKEY="ssh-ed25519 AAAA..." bash scripts/setup_vps.sh
+```
+
+Скрипт:
+- Установит Docker, Nginx, Git
+- Создаст пользователя `deploy`
+- Клонирует репо в `/opt/regola`
+- Создаст `/opt/regola/.env` из `.env.example`
+
+### 2. Заполни .env переменными
+
+```bash
+nano /opt/regola/.env
 ```
 
 Минимально обязательные production-переменные:
@@ -24,27 +37,39 @@ TRUST_PROXY=1
 DB_PATH=/app/data/regola.db
 PUBLIC_BASE_URL=https://regola.shop
 JWT_SECRET=strong-random-secret-at-least-32-characters
-ADMIN_LOGIN=change-me
-ADMIN_PASSWORD=change-me-at-least-12-characters
+ADMIN_LOGIN=your-admin-login
+ADMIN_PASSWORD=your-admin-password-at-least-12-chars
 ADMIN_ACCESS_KEY=another-strong-random-secret
 VITE_ADMIN_PATH=/_secure-admin-7f29A228lswP
 ```
 
-## Сборка и запуск
+### 3. Развертывание контейнера
 
 ```bash
 cd /opt/regola
-docker build -t regola-store:latest .
-docker rm -f regola 2>/dev/null || true
-docker run -d \
-  --name regola \
-  --restart unless-stopped \
-  --env-file .env \
-  -e DB_PATH=/app/data/regola.db \
-  -p 127.0.0.1:4000:4000 \
-  -v /opt/regola-data:/app/data \
-  regola-store:latest
+# Вариант A: ручной деплой (как deploy-пользователь или через sudo)
+sudo -u deploy bash scripts/deploy.sh
+
+# Вариант B: автоматический деплой с переменными (не требует редактирования .env после первого раза)
+NODE_ENV=production \
+JWT_SECRET="your-random-secret-here" \
+ADMIN_ACCESS_KEY="another-secret" \
+bash scripts/deploy.sh
+```
+
+Скрипт автоматически:
+- Создает `.env` если его нет
+- Заполняет значения из переменных окружения (если переданы)
+- Делает бэкап БД
+- Собирает Docker image
+- Запускает контейнер
+- Проверяет здоровье приложения
+
+### 4. Проверка
+
+```bash
 curl -fsS http://127.0.0.1:4000/api/health
+curl -fsS http://127.0.0.1:4000/api/commerce/config
 ```
 
 ## Nginx
@@ -76,24 +101,31 @@ systemctl reload nginx
 certbot --nginx -d regola.shop -d www.regola.shop
 ```
 
-## Обновление без потери базы
+## Обновление (на продакшене)
+
+Просто запусти скрипт деплоя — он всё сделает автоматически:
 
 ```bash
-mkdir -p /opt/regola-backups
-cp /opt/regola-data/regola.db /opt/regola-backups/regola-$(date +%F-%H%M%S).db
 cd /opt/regola
-git pull --ff-only origin main
-docker build -t regola-store:latest .
-docker rm -f regola
-docker run -d \
-  --name regola \
-  --restart unless-stopped \
-  --env-file .env \
-  -e DB_PATH=/app/data/regola.db \
-  -p 127.0.0.1:4000:4000 \
-  -v /opt/regola-data:/app/data \
-  regola-store:latest
-curl -fsS http://127.0.0.1:4000/api/health
+# Как deploy-пользователь (или через sudo -u deploy):
+bash scripts/deploy.sh
+
+# Или с переменными окружения для обновления .env на лету:
+NODE_ENV=production JWT_SECRET="new-secret" bash scripts/deploy.sh
+```
+
+Скрипт автоматически:
+- Создаст бэкап БД в `/opt/regola-backups/`
+- Скачает свежие коммиты (`git pull origin main`)
+- Пересоберет Docker image
+- Перезапустит контейнер
+- Проверит здоровье приложения
+
+Если что-то пошло не так, восстанови БД из бэкапа:
+
+```bash
+cp /opt/regola-backups/regola-latest.db /opt/regola-data/regola.db
+# и перезапусти контейнер
 ```
 
 ## Включение T-Банка и СДЭК
