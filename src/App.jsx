@@ -313,9 +313,9 @@ function ProductPage() {
             <div className="cart-success" role="status"><span>Товар добавлен в корзину</span><Link to="/cart">Перейти к оформлению</Link></div>
           )}
           <div className="product-assurance">
-            <span><b>Онлайн-оплата</b>Защищённая форма Т‑Банка</span>
-            <span><b>Доставка</b>СДЭК до ПВЗ или курьером</span>
-            <span><b>Гарантия</b>1 год на продукцию Regola</span>
+            <span><b>Онлайн-оплата</b> <span>Защищённая форма Т‑Банка</span></span>
+            <span><b>Доставка</b> <span>СДЭК до ПВЗ или курьером</span></span>
+            <span><b>Гарантия</b> <span>1 год на продукцию Regola</span></span>
           </div>
           <MarketplaceLinks product={product} compact={true} />
         </div>
