@@ -1,0 +1,41 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup SSH key
+      env:
+        VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        VPS_HOST: ${{ secrets.VPS_HOST }}
+        VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "$VPS_SSH_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        if [ -n "$VPS_SSH_PORT" ]; then
+          ssh-keyscan -p "$VPS_SSH_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+        else
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+        fi
+
+    - name: Run deploy script on VPS
+      env:
+        VPS_HOST: ${{ secrets.VPS_HOST }}
+        VPS_USER: ${{ secrets.VPS_USER }}
+        VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+      run: |
+        if [ -n "$VPS_SSH_PORT" ]; then
+          ssh -i ~/.ssh/id_rsa -p "$VPS_SSH_PORT" "$VPS_USER@$VPS_HOST" 'cd /opt/regola && bash scripts/deploy.sh'
+        else
+          ssh -i ~/.ssh/id_rsa "$VPS_USER@$VPS_HOST" 'cd /opt/regola && bash scripts/deploy.sh'
+        fi
+      shell: bash

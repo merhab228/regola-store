@@ -149,9 +149,9 @@ function AboutPage() {
         </div>
       </div>
       <div className="values-grid">
-        <article><h2>Продуманный дизайн</h2><p>Лаконичные формы и актуальные покрытия для современных интерьеров.</p></article>
-        <article><h2>Контроль качества</h2><p>Многоступенчатая проверка материалов, механизмов и комплектации.</p></article>
-        <article><h2>Прямая связь</h2><p>Консультация до покупки и поддержка после получения заказа.</p></article>
+        <article><span>01</span><h2>Продуманный дизайн</h2><p>Лаконичные формы и актуальные покрытия для современных интерьеров.</p></article>
+        <article><span>02</span><h2>Контроль качества</h2><p>Многоступенчатая проверка материалов, механизмов и комплектации.</p></article>
+        <article><span>03</span><h2>Прямая связь</h2><p>Консультация до покупки и поддержка после получения заказа.</p></article>
       </div>
     </section>
   );
@@ -313,9 +313,9 @@ function ProductPage() {
             <div className="cart-success" role="status"><span>Товар добавлен в корзину</span><Link to="/cart">Перейти к оформлению</Link></div>
           )}
           <div className="product-assurance">
-            <span><b>Онлайн-оплата</b> <span>Защищённая форма Т‑Банка</span></span>
-            <span><b>Доставка</b> <span>СДЭК до ПВЗ или курьером</span></span>
-            <span><b>Гарантия</b> <span>1 год на продукцию Regola</span></span>
+            <span><b>Онлайн-оплата</b>Защищённая форма Т‑Банка</span>
+            <span><b>Доставка</b>СДЭК до ПВЗ или курьером</span>
+            <span><b>Гарантия</b>1 год на продукцию Regola</span>
           </div>
           <MarketplaceLinks product={product} compact={true} />
         </div>

@@ -798,45 +798,6 @@ textarea:focus {
 }
 
 .admin-process-card__head > div {
-
-/* Layout for values grid (About page) */
-.values-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 18px;
-  margin-top: 18px;
-}
-.values-grid article {
-  padding: 8px 6px;
-}
-.values-grid article h2 {
-  margin: 0 0 8px;
-  font-size: 1.04rem;
-  color: var(--regola-navy-deep);
-}
-.values-grid article p {
-  margin: 0;
-  color: var(--regola-muted);
-  line-height: 1.45;
-}
-
-/* Numeric labels used across pages (01/02/03, service cards) */
-.service-card__number,
-.guarantee-steps article b,
-.guarantee-steps article b,
-.price-block__value .service-card__number {
-  display: inline-block;
-  margin: 0 0 8px 0;
-  color: rgba(21,39,59,0.55);
-  font-weight: 800;
-  font-size: 13px;
-  letter-spacing: 0.08em;
-}
-
-/* Product assurance lines: make bold label and supporting text inline but visually separated */
-.product-assurance span { display: block; margin-bottom: 8px; color: var(--regola-muted); }
-.product-assurance span b { display: block; font-weight: 700; color: var(--regola-navy-deep); margin-bottom: 4px; }
-
   display: grid;
   gap: 4px;
 }
