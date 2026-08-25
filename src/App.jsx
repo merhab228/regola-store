@@ -29,17 +29,18 @@ function PriceBlock({ product, large = false }) {
 
 function MarketplaceLinks({ product, compact = false }) {
   const links = [
-    ["Wildberries", "WB", "wildberries", product.wbUrl ?? product.wb_url],
-    ["Ozon", "OZON", "ozon", product.ozonUrl ?? product.ozon_url],
-    ["Яндекс Маркет", "Я", "yandex-market", product.ymUrl ?? product.ym_url],
+    ["Wildberries", "wildberries", "/marketplace-icons/wildberries.svg", product.wbUrl ?? product.wb_url],
+    ["Ozon", "ozon", "/marketplace-icons/ozon.svg", product.ozonUrl ?? product.ozon_url],
+    ["Яндекс Маркет", "yandex-market", "/marketplace-icons/yandex-market.svg", product.ymUrl ?? product.ym_url],
   ].filter(([, , , url]) => url);
 
   if (!links.length) return null;
   return (
     <div className={"market-offers" + (compact ? " market-offers--compact" : "")}>
-      {links.map(([name, , marketplace, url]) => (
+      {links.map(([name, marketplace, logo, url]) => (
         <a key={name} className={`market-offer market-offer--${marketplace}`} href={url} target="_blank" rel="noreferrer" aria-label={`Заказать на ${name}`}>
-          <span>Заказать на <strong>{name}</strong></span>
+          <span>Наш товар на <strong>{name}</strong></span>
+          <img className="market-offer__logo" src={logo} alt="" aria-hidden="true" />
         </a>
       ))}
     </div>

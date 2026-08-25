@@ -1822,13 +1822,13 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
   position: relative;
   overflow: hidden;
   width: 100%;
   box-sizing: border-box;
   margin: 0;
-  padding: 9px 12px 9px 15px;
+  padding: 7px 8px 7px 12px;
   border-radius: 10px;
   background: rgba(21, 39, 59, 0.025);
   color: var(--regola-navy);
@@ -1849,13 +1849,22 @@ textarea:focus {
   display: none;
 }
 .market-offers--compact a::after {
-  content: "→";
-  color: var(--regola-muted);
-  font-size: 16px;
-  line-height: 1;
+  display: none;
 }
 .market-offers--compact a span {
   flex: 1;
+}
+.card .market-offer__logo {
+  flex: 0 0 84px;
+  width: 84px;
+  height: 24px;
+  max-width: 84px;
+  object-fit: contain;
+  object-position: center;
+  transform: none;
+}
+.card:hover .market-offer__logo {
+  transform: none;
 }
 .market-offer--wildberries {
   border-color: var(--regola-border) !important;
