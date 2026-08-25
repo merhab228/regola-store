@@ -2548,6 +2548,19 @@ h3,
   color: var(--regola-navy);
 }
 
+.contact-icon-links .social-icon,
+.site-footer__contacts .social-icon {
+  width: 23px;
+  height: 23px;
+  fill: currentColor;
+}
+
+.contact-icon-links .social-icon--max,
+.site-footer__contacts .social-icon--max {
+  width: 26px;
+  height: 26px;
+}
+
 .breadcrumbs {
   display: flex;
   gap: 9px;

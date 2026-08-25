@@ -33,7 +33,7 @@ export function seedIfNeeded() {
   db.prepare(
     `INSERT INTO users (name, email, phone, address, password_hash, is_admin, admin_login)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run("Admin Regola", adminEmail, "+79829412000", "Санкт-Петербург, проспект Героев, 26", adminHash, 1, adminLogin);
+  ).run("Admin Regola", adminEmail, "+79829412000", "Санкт-Петербург, проспект Героев, 26, к. 1", adminHash, 1, adminLogin);
 
   db.prepare("INSERT INTO categories (name) VALUES (?)").run("Дверные ручки");
 

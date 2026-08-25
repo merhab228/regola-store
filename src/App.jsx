@@ -1,6 +1,7 @@
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import Layout from "./components/Layout";
+import SocialIcon from "./components/SocialIcons";
 import { useStore } from "./context/StoreContext";
 
 const ADMIN_ENTRY_PRIMARY = import.meta.env.VITE_ADMIN_PATH || "/_secure-admin-7f29A228lswP";
@@ -185,12 +186,12 @@ function ContactsPage() {
       <div className="contact-page-grid">
         <div className="contact-panel">
           <h2>Интернет-магазин дверных ручек</h2>
-          <p>г. Санкт-Петербург, проспект Героев, д. 26</p>
+          <p>г. Санкт-Петербург, проспект Героев, д. 26, к. 1</p>
           <p>Напишите нам в удобном мессенджере — ответим по товару, доставке, гарантии или оптовому заказу.</p>
           <div className="contact-icon-links">
-            <a href="https://t.me/" target="_blank" rel="noreferrer" aria-label="Telegram">TG</a>
-            <a href="https://max.ru/" target="_blank" rel="noreferrer" aria-label="MAX">MAX</a>
-            <a href="https://wa.me/79829412000" target="_blank" rel="noreferrer" aria-label="WhatsApp">WA</a>
+            <a href="https://t.me/" target="_blank" rel="noreferrer" aria-label="Telegram" title="Telegram"><SocialIcon name="telegram" /></a>
+            <a href="https://max.ru/" target="_blank" rel="noreferrer" aria-label="MAX" title="MAX"><SocialIcon name="max" /></a>
+            <a href="https://vk.com/" target="_blank" rel="noreferrer" aria-label="ВКонтакте" title="ВКонтакте"><SocialIcon name="vk" /></a>
           </div>
         </div>
         <QuestionSection />

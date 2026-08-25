@@ -629,7 +629,7 @@ function ensureEnvAdminUser(login, password) {
   const result = db.prepare(`
     INSERT INTO users (name, email, phone, address, password_hash, is_admin, admin_login)
     VALUES (?, ?, ?, ?, ?, 1, ?)
-  `).run("Admin Regola", email, "+79829412000", "Санкт-Петербург, проспект Героев, 26", hash, login);
+  `).run("Admin Regola", email, "+79829412000", "Санкт-Петербург, проспект Героев, 26, к. 1", hash, login);
   return db.prepare("SELECT * FROM users WHERE id = ?").get(Number(result.lastInsertRowid));
 }
 

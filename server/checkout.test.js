@@ -77,7 +77,7 @@ function checkoutBody(overrides = {}) {
     phone: "+7 999 123-45-67",
     email: "ivan@example.ru",
     city: "Санкт-Петербург",
-    address: "Проспект Героев, 26",
+    address: "Проспект Героев, 26, к. 1",
     deliveryMethod: "СДЭК до ПВЗ",
     paymentMethod: "online",
     comment: "Позвонить перед доставкой",

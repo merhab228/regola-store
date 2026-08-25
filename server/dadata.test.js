@@ -16,12 +16,12 @@ test("DaData suggestions keep the token on the server and map city/address selec
       if (calls.length === 1) {
         return response({ suggestions: [{ value: "г Санкт-Петербург", data: { city_with_type: "г Санкт-Петербург", city_fias_id: cityFiasId } }] });
       }
-      return response({ suggestions: [{ value: "г Санкт-Петербург, пр-кт Героев, д 26", data: { fias_id: addressFiasId, house: "26" } }] });
+      return response({ suggestions: [{ value: "г Санкт-Петербург, пр-кт Героев, д 26, к 1", data: { fias_id: addressFiasId, house: "26" } }] });
     },
   });
 
   const cities = await client.suggest({ kind: "city", query: "санкт" });
-  const addresses = await client.suggest({ kind: "address", query: "героев 26", cityFiasId });
+  const addresses = await client.suggest({ kind: "address", query: "героев 26 к1", cityFiasId });
 
   assert.equal(cities[0].fiasId, cityFiasId);
   assert.equal(addresses[0].fiasId, addressFiasId);
