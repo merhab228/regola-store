@@ -203,7 +203,7 @@ function ContactsPage() {
 function WholesaleCallout() {
   return (
     <section id="wholesale" className="wholesale-callout">
-      <div><p className="section-kicker">Для бизнеса</p><h2>Оптовые заказы и покупка для юридических лиц</h2><p>Напишите нам список товаров и реквизиты организации. Менеджер уточнит условия и выставит счёт для безналичной оплаты.</p></div>
+      <div><p>Покупка продукции для юридических лиц: напишите здесь — менеджер свяжется с вами.</p></div>
       <Link className="btn btn--light" to="/contacts">Обсудить оптовый заказ</Link>
     </section>
   );
