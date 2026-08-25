@@ -79,6 +79,13 @@ else
   echo "No deploy/regola.service found in repo — skipping unit install"
 fi
 
+echo ">>> Installing daily database backup timer"
+if [ -f "$REPO_DIR/deploy/systemd/regola-db-backup.timer" ]; then
+  bash "$REPO_DIR/scripts/install_backup_timer.sh"
+else
+  echo "No database backup timer found in repo — skipping"
+fi
+
 echo "Setup complete. Next steps:"
 echo " 1. Edit .env with production secrets:"
 echo "    nano /opt/regola/.env"

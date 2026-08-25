@@ -124,9 +124,29 @@ NODE_ENV=production JWT_SECRET="new-secret" bash scripts/deploy.sh
 Если что-то пошло не так, восстанови БД из бэкапа:
 
 ```bash
-cp /opt/regola-backups/regola-latest.db /opt/regola-data/regola.db
+cp /opt/regola-backups/regola-YYYY-MM-DDTHH-MM-SS-sssZ.db /opt/regola-data/regola.db
 # и перезапусти контейнер
 ```
+
+## Ежедневные резервные копии
+
+Деплой создаёт проверенную SQLite-копию перед перезапуском контейнера. Она создаётся через SQLite Backup API, поэтому содержит данные из WAL, включая последние карточки и заказы.
+
+Один раз на VPS от root включи ежедневный backup (в 03:20, с небольшим случайным разбросом):
+
+```bash
+cd /opt/regola
+bash scripts/install_backup_timer.sh
+```
+
+Проверить таймер и последние копии:
+
+```bash
+systemctl list-timers regola-db-backup.timer
+ls -lah /opt/regola-backups
+```
+
+Копии старше 31 дня автоматически удаляются. Перед восстановлением останови контейнер и обязательно скопируй текущую БД в отдельный файл.
 
 ## Включение T-Банка и СДЭК
 

@@ -2,15 +2,29 @@
 set -euo pipefail
 
 # Usage: run on VPS from /opt/regola as a user with docker permissions
-# Creates a DB backup, pulls changes, builds image and restarts container.
+# Creates a verified SQLite backup, pulls changes, builds image and restarts container.
 # Optional: pass environment variables to auto-fill .env:
 #   NODE_ENV=production JWT_SECRET=xxx ADMIN_ACCESS_KEY=yyy bash deploy.sh
 
 REPO_DIR="/opt/regola"
 DATA_DIR="/opt/regola-data"
-BACKUP_DIR="/opt/regola-backups"
 IMAGE_NAME="regola-store:latest"
 CONTAINER_NAME="regola"
+
+if docker container inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
+  CURRENT_DATA_MOUNT=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/app/data"}}{{.Type}}:{{.Source}}{{end}}{{end}}' "$CONTAINER_NAME")
+  if [ "$CURRENT_DATA_MOUNT" != "" ] && [ "$CURRENT_DATA_MOUNT" != "bind:$DATA_DIR" ]; then
+    echo "[Deploy] Refusing: current container uses $CURRENT_DATA_MOUNT, not bind:$DATA_DIR." >&2
+    echo "[Deploy] Migrate and verify that data before replacing the container." >&2
+    exit 1
+  fi
+fi
+
+if [ ! -s "$DATA_DIR/regola.db" ] && [ "${ALLOW_EMPTY_DB:-}" != "1" ]; then
+  echo "[Deploy] Refusing: no database at $DATA_DIR/regola.db." >&2
+  echo "[Deploy] For the very first deployment only, use ALLOW_EMPTY_DB=1." >&2
+  exit 1
+fi
 
 # Auto-initialize .env from template if missing
 if [ ! -f "$REPO_DIR/.env" ]; then
@@ -30,21 +44,16 @@ if [ -n "${ADMIN_ACCESS_KEY:-}" ]; then
   sed -i "s|^ADMIN_ACCESS_KEY=.*|ADMIN_ACCESS_KEY=$ADMIN_ACCESS_KEY|" "$REPO_DIR/.env" || true
 fi
 
-mkdir -p "$BACKUP_DIR"
-TIMESTAMP=$(date +"%F-%H%M%S")
-if [ -f "$DATA_DIR/regola.db" ]; then
-  cp "$DATA_DIR/regola.db" "$BACKUP_DIR/regola-$TIMESTAMP.db"
-  echo "DB backed up to $BACKUP_DIR/regola-$TIMESTAMP.db"
-else
-  echo "No DB found at $DATA_DIR/regola.db — skipping backup"
-fi
-
 cd "$REPO_DIR"
 # make sure working tree is clean
 git fetch origin --quiet
 git reset --hard origin/main
 
 docker build -t $IMAGE_NAME .
+
+if [ -s "$DATA_DIR/regola.db" ]; then
+  bash scripts/backup_db.sh
+fi
 
 docker rm -f $CONTAINER_NAME || true
 # start new container
@@ -57,10 +66,17 @@ docker run -d \
   -v $DATA_DIR:/app/data \
   $IMAGE_NAME
 
-# health check
-if curl -fsS http://127.0.0.1:4000/api/health >/dev/null; then
-  echo "Deployment succeeded and service is healthy"
-else
-  echo "Warning: health check failed"
-  exit 2
-fi
+# Health check: app startup can take a few seconds on a cold container.
+for attempt in $(seq 1 15); do
+  if curl -fsS http://127.0.0.1:4000/api/health >/dev/null; then
+    echo "Deployment succeeded and service is healthy"
+    if command -v systemctl >/dev/null 2>&1; then
+      bash scripts/install_backup_timer.sh
+    fi
+    exit 0
+  fi
+  sleep 2
+done
+
+echo "[Deploy] Health check failed after 30 seconds" >&2
+exit 2

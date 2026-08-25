@@ -1854,7 +1854,7 @@ textarea:focus {
 .market-offers--compact a span {
   flex: 1;
 }
-.card .market-offer__logo {
+.market-offers--compact .market-offer__logo {
   flex: 0 0 84px;
   width: 84px;
   height: 24px;
@@ -1863,7 +1863,7 @@ textarea:focus {
   object-position: center;
   transform: none;
 }
-.card:hover .market-offer__logo {
+.market-offers--compact a:hover .market-offer__logo {
   transform: none;
 }
 .market-offer--wildberries {

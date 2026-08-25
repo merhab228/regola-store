@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Regola SQLite database backup
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+RandomizedDelaySec=20m
+Persistent=true
+Unit=regola-db-backup.service
+
+[Install]
+WantedBy=timers.target
