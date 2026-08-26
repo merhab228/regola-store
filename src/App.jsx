@@ -187,6 +187,7 @@ function ContactsPage() {
         <div className="contact-panel">
           <h2>Интернет-магазин дверных ручек</h2>
           <p>г. Санкт-Петербург, проспект Героев, д. 26, к. 1</p>
+          <p><a href="mailto:torretta-club@mail.ru">torretta-club@mail.ru</a></p>
           <p>Напишите нам в удобном мессенджере — ответим по товару, доставке, гарантии или оптовому заказу.</p>
           <div className="contact-icon-links">
             <a href="https://t.me/" target="_blank" rel="noreferrer" aria-label="Telegram" title="Telegram"><SocialIcon name="telegram" /></a>

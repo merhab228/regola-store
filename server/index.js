@@ -15,6 +15,7 @@ import { createTbankClient, processTbankNotification } from "./tbank.js";
 import { createCdekClient } from "./cdek.js";
 import { createDadataClient, DadataError } from "./dadata.js";
 import { createTelegramBot } from "./telegramBot.js";
+import { formatNotification, sendEmailNotification } from "./emailNotifier.js";
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -122,7 +123,7 @@ app.get("/api/products/:id", (req, res) => {
 app.post("/api/contact", async (req, res) => {
   try {
     const message = saveSiteMessage("question", req.body);
-    await notifyTelegram("Новый вопрос с сайта", message);
+    await notifyAdministrators("Новый вопрос с сайта", message);
     res.status(201).json({ ok: true });
   } catch (error) {
     res.status(400).json({ message: error.message || "Request failed" });
@@ -166,7 +167,7 @@ app.get("/api/cdek/delivery-points", async (req, res) => {
 app.post("/api/checkout", createCheckoutHandler({
   database: db,
   saveOrderMessage: (payload) => saveSiteMessage("order", payload),
-  notifyTelegram,
+  notifyTelegram: notifyAdministrators,
   serializeOrder: withItems,
   resolveDelivery: async ({ customer, cart }) => (
     cdekClient.isConfigured && customer.deliveryMethod.startsWith("СДЭК")
@@ -524,29 +525,19 @@ function saveSiteMessage(type, body = {}) {
   return { id: Number(result.lastInsertRowid), type, status: "new", name, phone, email, message: message || "Заявка с сайта", payload: body, createdAt };
 }
 
+async function notifyAdministrators(title, data) {
+  await Promise.all([notifyTelegram(title, data), sendEmailNotification(title, data)]);
+}
+
 async function notifyTelegram(title, data) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId || typeof fetch !== "function") return;
-  const lines = [
-    title,
-    `Имя: ${data.name}`,
-    data.phone ? `Телефон: ${data.phone}` : "",
-    data.email ? `Email: ${data.email}` : "",
-    data.message ? `Сообщение: ${data.message}` : "",
-  ].filter(Boolean);
-  if (Array.isArray(data.payload?.items)) {
-    lines.push("Товары:");
-    for (const item of data.payload.items.slice(0, 20)) {
-      lines.push(`- ${item.name} × ${item.qty} — ${item.price} ₽`);
-    }
-    lines.push(`Итого: ${data.payload.total || 0} ₽`);
-  }
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text: lines.join("\n") }),
+      body: JSON.stringify({ chat_id: chatId, text: formatNotification(title, data) }),
     });
   } catch (error) {
     console.warn("[Regola] Telegram notification failed:", error.message);
