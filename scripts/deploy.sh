@@ -71,6 +71,7 @@ docker run -d \
   --restart unless-stopped \
   --env-file .env \
   -e DB_PATH=/app/data/regola.db \
+  -e NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt \
   -p 127.0.0.1:4000:4000 \
   -v $DATA_DIR:/app/data \
   $IMAGE_NAME

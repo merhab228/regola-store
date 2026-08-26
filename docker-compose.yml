@@ -5,6 +5,7 @@ services:
     environment:
       DB_PATH: /app/data/regola.db
       UPLOAD_DIR: /app/data/uploads
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/ca-certificates.crt
     restart: unless-stopped
     ports:
       - "127.0.0.1:4000:4000"
