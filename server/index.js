@@ -14,6 +14,7 @@ import { CheckoutValidationError, createCheckoutHandler, estimateDelivery, prepa
 import { createTbankClient, processTbankNotification } from "./tbank.js";
 import { createCdekClient } from "./cdek.js";
 import { createDadataClient, DadataError } from "./dadata.js";
+import { createTelegramBot } from "./telegramBot.js";
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,6 +33,7 @@ const BCRYPT_DUMMY = "$2a$12$YyuILP8godldZ3CATSqf7.ZsfJwijqh98kxF.8qSNDQQXjNbl.z
 const tbankClient = createTbankClient();
 const cdekClient = createCdekClient();
 const dadataClient = createDadataClient();
+const telegramBot = createTelegramBot({ database: db });
 const addressSuggestLimits = new Map();
 
 try {
@@ -424,7 +426,13 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-app.listen(PORT, () => console.log(`Regola API running on http://localhost:${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Regola API running on http://localhost:${PORT}`);
+  if (telegramBot.enabled) {
+    telegramBot.start();
+    console.log("[Regola] Telegram bot control panel enabled.");
+  }
+});
 
 function normalizeProductPayload(body) {
   const images = normalizeImages(body.images, body.image);
