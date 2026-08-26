@@ -229,13 +229,31 @@ async function postJson(url, body, fetchImpl) {
       return data;
     } catch (error) {
       if (error instanceof TbankError) throw error;
-      if (attempt === 2) throw new TbankError("Не удалось связаться с T-Банком", "NETWORK_ERROR");
+      if (attempt === 2) throw networkError(error);
       await new Promise((resolve) => setTimeout(resolve, 250));
     } finally {
       clearTimeout(timeout);
     }
   }
   throw new TbankError("Не удалось связаться с T-Банком", "NETWORK_ERROR");
+}
+
+function networkError(error) {
+  if (error?.name === "AbortError") {
+    return new TbankError("Т-Банк не ответил вовремя. Попробуйте ещё раз.", "NETWORK_TIMEOUT");
+  }
+
+  const code = String(error?.cause?.code || error?.code || "").toUpperCase();
+  if (["UNABLE_TO_VERIFY_LEAF_SIGNATURE", "SELF_SIGNED_CERT_IN_CHAIN", "CERT_HAS_EXPIRED", "DEPTH_ZERO_SELF_SIGNED_CERT"].includes(code)) {
+    return new TbankError("Не удалось установить защищённое соединение с Т-Банком", "NETWORK_TLS");
+  }
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") {
+    return new TbankError("Не удалось найти сервер Т-Банка. Попробуйте ещё раз.", "NETWORK_DNS");
+  }
+  if (["ETIMEDOUT", "ECONNABORTED", "ECONNRESET", "ECONNREFUSED"].includes(code)) {
+    return new TbankError("Т-Банк временно недоступен. Попробуйте ещё раз.", "NETWORK_CONNECTION");
+  }
+  return new TbankError("Не удалось связаться с Т-Банком", "NETWORK_ERROR");
 }
 
 function safeProviderMessage(response) {
