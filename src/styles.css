@@ -3000,10 +3000,29 @@ h3,
   border-radius: 50%;
   background: rgba(15, 28, 43, 0.72);
   color: #fff;
-  font-size: 32px;
-  line-height: 1;
+  font-size: 0;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+.image-modal button::before,
+.image-modal button::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 25px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.image-modal button::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.image-modal button::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .modal-open {
