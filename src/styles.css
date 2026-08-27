@@ -2549,7 +2549,8 @@ h3,
 .wholesale-callout p:not(.section-kicker) {
   max-width: 760px;
   margin-bottom: 0;
-  line-height: 1.6;
+  font-size: clamp(20px, 1.5vw, 26px);
+  line-height: 1.45;
 }
 
 .btn--light {
