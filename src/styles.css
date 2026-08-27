@@ -65,6 +65,123 @@ h3 { font-size: clamp(18px, 2.2vw, 20px); line-height: 1.2; }
   font-size: 18px;
   line-height: 1.6;
 }
+
+/* Payment, delivery and guarantees pages */
+.payment-detail {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.82fr) minmax(0, 1.18fr);
+  min-height: 520px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.payment-detail--delivery {
+  grid-template-columns: minmax(0, 1.18fr) minmax(280px, 0.82fr);
+}
+
+.payment-detail__content {
+  padding: clamp(34px, 6vw, 74px);
+  align-self: center;
+}
+
+.payment-detail__content h1,
+.payment-detail__content > h2 {
+  margin: 0;
+  color: #000;
+  font-size: clamp(42px, 5vw, 66px);
+  font-weight: 500;
+}
+
+.payment-detail__lead {
+  max-width: 700px;
+  margin: 38px 0 0;
+  font-size: clamp(18px, 2vw, 23px);
+  line-height: 1.45;
+}
+
+.payment-detail__items {
+  display: grid;
+  gap: 28px;
+  margin-top: 90px;
+}
+
+.payment-detail__items h2,
+.payment-detail__items h3 {
+  margin: 0 0 4px;
+  color: #000;
+  font-size: 21px;
+}
+
+.payment-detail__items p {
+  max-width: 720px;
+  margin: 0;
+  color: #000;
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.payment-detail__visual {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+  color: rgba(255,255,255,.9);
+}
+
+.payment-detail__visual img {
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+  object-fit: cover;
+}
+
+.payment-detail__visual--payment {
+  order: -1;
+}
+
+
+.guarantees-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(280px, .82fr);
+  gap: clamp(34px, 8vw, 110px);
+  align-items: center;
+  padding: clamp(34px, 7vw, 96px);
+  background: #fff;
+}
+
+.guarantees-layout__content > p,
+.guarantees-list p {
+  max-width: 680px;
+  color: #222;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.guarantees-layout h1 { margin: 0 0 26px; color: #111; font-size: clamp(32px, 4vw, 48px); }
+.guarantees-list { display: grid; gap: 14px; margin-top: 24px; }
+.guarantees-list h2 { margin: 0 0 3px; color: #111; font-size: 16px; }
+.guarantees-list p { margin: 0; }
+
+.guarantee-certificate {
+  justify-self: center;
+  width: min(100%, 360px);
+  min-height: 410px;
+  padding: 42px 30px;
+  display: grid;
+  align-content: center;
+  gap: 26px;
+  transform: rotate(-8deg);
+  border-radius: 5px;
+  background: linear-gradient(145deg, #fefefe, #d8d8d8);
+  color: #111;
+  text-align: center;
+  box-shadow: 0 24px 38px rgba(0,0,0,.26);
+}
+
+.guarantee-certificate span { padding: 9px; border-top: 1px solid #777; border-bottom: 1px solid #777; font-weight: 800; letter-spacing: .18em; }
+.guarantee-certificate b { font-size: clamp(30px, 4vw, 48px); line-height: 1.05; }
+.guarantee-certificate small { font-size: 17px; font-weight: 700; }
 .header {
   background: var(--regola-navy);
   color: var(--regola-sand);
@@ -3056,8 +3173,10 @@ h3,
 
   .service-grid,
   .marketplace-section,
+  .payment-detail,
   .about-story,
   .guarantee-hero,
+  .guarantees-layout,
   .contact-page-grid,
   .product,
   .product-details {
@@ -3068,6 +3187,21 @@ h3,
     min-height: 240px;
     padding: 22px;
   }
+
+  .payment-detail--payment .payment-detail__visual { order: 0; }
+
+  .payment-detail__content,
+  .guarantees-layout {
+    padding: 28px 22px;
+  }
+
+  .payment-detail__items { margin-top: 38px; }
+
+  .payment-detail__visual { min-height: 260px; }
+
+  .payment-detail__visual img { min-height: 260px; }
+
+  .guarantees-layout { gap: 30px; }
 
   .process-steps,
   .values-grid,

@@ -14,7 +14,7 @@ export default function BottomContacts() {
         <div className="site-footer__info">
           <p>Regola — интернет-магазин дверных ручек</p>
           <p>г. Санкт-Петербург, проспект Героев, д. 26, к. 1</p>
-          <p><a href="mailto:torretta-club@mail.ru">torretta-club@mail.ru</a></p>
+          <p><a href="mailto:regola-shop@mail.ru">regola-shop@mail.ru</a></p>
           <p>ИНН / КПП 720324917448</p>
           <p>ОГРН 316723200095576</p>
           <nav className="site-footer__markets" aria-label="Маркетплейсы">

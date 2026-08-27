@@ -1,7 +1,7 @@
 import net from "net";
 import tls from "tls";
 
-const DEFAULT_RECIPIENT = "torretta-club@mail.ru";
+const DEFAULT_RECIPIENT = "regola-shop@mail.ru";
 
 export function formatNotification(title, data) {
   const lines = [

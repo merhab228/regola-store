@@ -90,38 +90,29 @@ function PageTitle({ id, children, eyebrow }) {
 function PaymentDeliveryPage() {
   return (
     <section className="content-page motion-in" aria-labelledby="payment-heading">
-      <PageTitle id="payment-heading" eyebrow="Покупка напрямую у Regola">Оплата и доставка</PageTitle>
-      <div className="payment-hero">
-        <div className="payment-hero__content">
-          <p className="lead">Оплатить и получить — быстро и безопасно. На этой странице собрано всё про способы оплаты, доставку через СДЭК и альтернативные каналы покупки через маркетплейсы.</p>
+      <section className="payment-detail payment-detail--payment" aria-labelledby="payment-heading">
+        <div className="payment-detail__visual payment-detail__visual--payment"><img src="/payment-reference.jpg" alt="Оплата банковской картой через терминал" /></div>
+        <div className="payment-detail__content">
+          <h1 id="payment-heading">Оплата</h1>
+          <p className="payment-detail__lead">Мы предлагаем несколько удобных способов оплаты, чтобы каждый покупатель выбрал подходящий для себя вариант.</p>
+          <div className="payment-detail__items">
+            <div><h2>Банковской картой онлайн</h2><p>Оплатите заказ банковской картой на защищённой платёжной форме Т‑Банка. Доступные способы оплаты отображаются при оформлении заказа.</p></div>
+            <div><h2>Безналичный расчёт для юридических лиц</h2><p>Работаем с НДС и без НДС. Выставляем счета на оплату, предоставляем все закрывающие документы.</p></div>
+          </div>
         </div>
-      </div>
-
-      <div className="service-grid">
-        <article className="service-card service-card--payment">
-          <div className="service-card__icon" aria-hidden="true">₽</div>
-          <div><p className="service-card__number">01</p><h2>Безопасная онлайн-оплата</h2></div>
-          <p>Оплатите заказ банковской картой на защищённой платёжной форме Т‑Банка. Данные карты не передаются сайту Regola.</p>
-        </article>
-        <article className="service-card service-card--delivery">
-          <div className="service-card__icon" aria-hidden="true">→</div>
-          <div><p className="service-card__number">02</p><h2>Доставка СДЭК</h2></div>
-          <p>Выберите пункт выдачи или курьерскую доставку до двери. Стоимость и срок рассчитываются при оформлении заказа.</p>
-        </article>
-      </div>
-      <section className="process-section" aria-labelledby="process-heading">
-        <h2 id="process-heading">Как проходит заказ</h2>
-        <ol className="process-steps">
-          <li><b>Добавьте товар</b><span>Выберите модель, цвет и количество.</span></li>
-          <li><b>Укажите доставку</b><span>Выберите город, способ доставки и удобный ПВЗ.</span></li>
-          <li><b>Оплатите онлайн</b><span>После создания заказа откроется защищённая форма Т‑Банка.</span></li>
-          <li><b>Получите заказ</b><span>Мы передадим отправление в СДЭК и сообщим трек‑номер.</span></li>
-        </ol>
+      </section>
+      <section className="payment-detail payment-detail--delivery" aria-labelledby="delivery-heading">
+        <div className="payment-detail__content">
+          <h2 id="delivery-heading">Доставка</h2>
+          <p className="payment-detail__lead">Мы сделали доставку простой и быстрой, чтобы вы получили свой заказ в целости в удобный для вас срок.</p>
+          <div className="payment-detail__items"><div><h3>Доставка в регионы России</h3><p><b>Отправляем в любой населённый пункт транспортными компаниями СДЭК.</b><br />Стоимость: от 350 руб. (рассчитывается индивидуально).<br />После отправки вы получите трек-номер для отслеживания.</p></div></div>
+        </div>
+        <div className="payment-detail__visual payment-detail__visual--delivery"><img src="/delivery-reference.jpg" alt="Курьер с заказом у грузового автомобиля" /></div>
       </section>
       <section className="marketplace-section" aria-labelledby="marketplace-heading">
         <div>
           <p className="section-kicker">Альтернативный способ покупки</p>
-          <h2 id="marketplace-heading">Заказ через маркетплейсы</h2>
+          <h2 id="marketplace-heading">Через маркетплейсы</h2>
           <p>В каждой карточке товара есть прямые ссылки на Wildberries, Ozon и Яндекс Маркет. Выберите удобную площадку и оформите заказ в её приложении.</p>
         </div>
         <div className="marketplace-quick-links">
@@ -138,21 +129,16 @@ function PaymentDeliveryPage() {
 function AboutPage() {
   return (
     <section className="content-page motion-in" aria-labelledby="about-heading">
-      <PageTitle id="about-heading" eyebrow="Эстетика в каждой детали">Цель компании</PageTitle>
+      <PageTitle id="about-heading" eyebrow="Regola">О нас</PageTitle>
       <div className="about-story">
         <div className="about-story__lead">
-          <p>Regola создана для тех, кто ценит сочетание эстетики и функциональности в каждой детали интерьера.</p>
+          <p>REGOLA — торговая марка дверных ручек, которая уверенно развивается на рынке уже 3 года.</p>
         </div>
         <div className="about-story__body">
-          <p>Мы специализируемся на дверных ручках для межкомнатных дверей. Производство расположено в Китае на площадках с современным высокотехнологичным оборудованием.</p>
-          <p>Это позволяет внедрять инженерные решения, обеспечивать высокую точность изготовления и контролировать качество на каждом этапе производства.</p>
-          <p>Мы тщательно подбираем материалы, тестируем образцы и проверяем каждую модель перед отправкой. Наша цель — предложить фурнитуру, которая сохраняет внешний вид и исправно служит долгие годы.</p>
+          <p>Сегодня продукцию REGOLA можно встретить на крупнейших маркетплейсах, но мы стремимся к более тесному взаимодействию с клиентами: на нашем сайте вы можете оформить заказ напрямую, без посредников. Такой подход нередко оказывается выгоднее для покупателя, а для нас — возможность выстраивать прозрачные и доверительные отношения с каждым клиентом.</p>
+          <p>Мы по-прежнему сохраняем присутствие на маркетплейсах, но в перспективе планируем сфокусироваться на прямых продажах. Для юридических лиц предусмотрена возможность оптовых закупок с оплатой по расчётному счёту.</p>
+          <p>На всю продукцию REGOLA действует гарантия качества сроком 1 год, а при возникновении любых вопросов или сложностей мы всегда на связи — вместе найдём оптимальное решение.</p>
         </div>
-      </div>
-      <div className="values-grid">
-        <article><span>01</span><h2>Продуманный дизайн</h2><p>Лаконичные формы и актуальные покрытия для современных интерьеров.</p></article>
-        <article><span>02</span><h2>Контроль качества</h2><p>Многоступенчатая проверка материалов, механизмов и комплектации.</p></article>
-        <article><span>03</span><h2>Прямая связь</h2><p>Консультация до покупки и поддержка после получения заказа.</p></article>
       </div>
     </section>
   );
@@ -161,19 +147,18 @@ function AboutPage() {
 function GuaranteesPage() {
   return (
     <section className="content-page motion-in" aria-labelledby="guarantees-heading">
-      <PageTitle id="guarantees-heading" eyebrow="Уверенность в выборе">Гарантии</PageTitle>
-      <div className="guarantee-hero">
-        <div className="guarantee-seal" aria-hidden="true"><b>1</b><span>год гарантии</span></div>
-        <div>
-          <h2>Гарантия качества Regola</h2>
-          <p>На продукцию Regola действует гарантия сроком один год. Перед продажей мы проверяем внешний вид, механизм и комплектацию каждой модели.</p>
-          <p>Если возникнет вопрос по заказу, установке или эксплуатации, напишите нам — мы разберём обращение и предложим решение.</p>
+      <div className="guarantees-layout">
+        <div className="guarantees-layout__content">
+          <h1 id="guarantees-heading">Гарантии качества</h1>
+          <p>Мы уверены в том, что продаем. Каждая дверная ручка в нашем каталоге проходит тщательный отбор, чтобы радовать вас безупречной работой долгие годы. Что мы гарантируем:</p>
+          <div className="guarantees-list">
+            <div><h2>Официальная гарантия от производителя</h2><p>На все ручки предоставляется гарантия 12 месяцев. В течение этого срока мы бесплатно заменим товар, если обнаружатся дефекты.</p></div>
+            <div><h2>100% проверка перед отправкой</h2><p>Каждое изделие проверяется на наличие сколов, царапин и работоспособность механизма переключения.</p></div>
+            <div><h2>Надежная упаковка</h2><p>Ручки — товар чувствительный к ударам. Мы упаковываем их в пузырчатую пленку и плотные коробки, чтобы они доехали к вам в целости.</p></div>
+            <div><h2>Простой возврат и обмен</h2><p>Если товар не подошел по цвету, размеру или дизайну — верните его в течение 14 дней без лишних вопросов. Главное — сохраните товарный вид и упаковку.</p></div>
+          </div>
         </div>
-      </div>
-      <div className="guarantee-steps">
-        <article><b>01</b><h3>Сохраните заказ</h3><p>Номер заказа или подтверждение покупки поможет быстрее найти информацию.</p></article>
-        <article><b>02</b><h3>Опишите ситуацию</h3><p>Приложите фотографии или видео и укажите, когда обнаружили проблему.</p></article>
-        <article><b>03</b><h3>Получите решение</h3><p>Мы проверим обращение и согласуем замену, комплектующую или иной вариант.</p></article>
+        <div className="guarantee-certificate" aria-hidden="true"><span>REGOLA</span><b>Гарантия<br />качества</b><small>12 месяцев</small></div>
       </div>
     </section>
   );
@@ -187,7 +172,7 @@ function ContactsPage() {
         <div className="contact-panel">
           <h2>Интернет-магазин дверных ручек</h2>
           <p>г. Санкт-Петербург, проспект Героев, д. 26, к. 1</p>
-          <p><a href="mailto:torretta-club@mail.ru">torretta-club@mail.ru</a></p>
+          <p><a href="mailto:regola-shop@mail.ru">regola-shop@mail.ru</a></p>
           <p>Напишите нам в удобном мессенджере — ответим по товару, доставке, гарантии или оптовому заказу.</p>
           <div className="contact-icon-links">
             <a href="https://t.me/" target="_blank" rel="noreferrer" aria-label="Telegram" title="Telegram"><SocialIcon name="telegram" /></a>
@@ -206,7 +191,7 @@ function WholesaleCallout() {
   return (
     <section id="wholesale" className="wholesale-callout">
       <div><p>Покупка продукции для юридических лиц: напишите здесь — менеджер свяжется с вами.</p></div>
-      <Link className="btn btn--light" to="/contacts">Обсудить оптовый заказ</Link>
+      <Link className="btn btn--light" to="/contacts#question">Задать вопрос</Link>
     </section>
   );
 }

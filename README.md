@@ -52,16 +52,16 @@ TELEGRAM_CHAT_ID=123456789
 
 ## Уведомления на email
 
-Новые заказы и вопросы также отправляются на `torretta-club@mail.ru`. Для Mail.ru добавьте в production `.env` пароль приложения (обычный пароль от почты не используйте):
+Новые заказы и вопросы также отправляются на `regola-shop@mail.ru`. Для Mail.ru добавьте в production `.env` пароль приложения (обычный пароль от почты не используйте):
 
 ```env
-EMAIL_TO=torretta-club@mail.ru
+EMAIL_TO=regola-shop@mail.ru
 SMTP_HOST=smtp.mail.ru
 SMTP_PORT=465
 SMTP_SECURE=true
-SMTP_USER=torretta-club@mail.ru
+SMTP_USER=regola-shop@mail.ru
 SMTP_PASSWORD=пароль-приложения
-EMAIL_FROM=torretta-club@mail.ru
+EMAIL_FROM=regola-shop@mail.ru
 ```
 
 После изменения `.env` пересоздайте или перезапустите контейнер сервера.
