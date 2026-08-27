@@ -1331,6 +1331,7 @@ textarea:focus {
 }
 .site-footer__info a {
   color: inherit;
+  text-decoration: none;
 }
 .site-footer__contacts {
   justify-self: end;
