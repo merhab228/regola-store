@@ -36,6 +36,8 @@ const cdekClient = createCdekClient();
 const dadataClient = createDadataClient();
 const telegramBot = createTelegramBot({ database: db });
 const addressSuggestLimits = new Map();
+const recentContactSubmissions = new Map();
+const CONTACT_DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
 
 try {
   seedIfNeeded();
@@ -122,6 +124,9 @@ app.get("/api/products/:id", (req, res) => {
 
 app.post("/api/contact", async (req, res) => {
   try {
+    if (!claimContactSubmission(req, req.body)) {
+      return res.status(429).json({ message: "Это обращение уже отправлено. Мы скоро свяжемся с вами." });
+    }
     const message = saveSiteMessage("question", req.body);
     await notifyAdministrators("Новый вопрос с сайта", message);
     res.status(201).json({ ok: true });
@@ -502,6 +507,26 @@ function allowAddressSuggestion(req) {
     }
   }
   return current.count <= 90;
+}
+
+function claimContactSubmission(req, body = {}) {
+  const name = String(body.name || "").trim();
+  const message = String(body.message || "").trim();
+  if (!name || !message) return true;
+
+  const fingerprint = crypto.createHash("sha256")
+    .update([adminClientIp(req), name, String(body.phone || "").trim(), String(body.email || "").trim(), message].join("\u0000").toLowerCase(), "utf8")
+    .digest("hex");
+  const now = Date.now();
+  const previous = recentContactSubmissions.get(fingerprint);
+  if (previous && now - previous < CONTACT_DUPLICATE_WINDOW_MS) return false;
+  recentContactSubmissions.set(fingerprint, now);
+  if (recentContactSubmissions.size > 5_000) {
+    for (const [key, submittedAt] of recentContactSubmissions) {
+      if (now - submittedAt >= CONTACT_DUPLICATE_WINDOW_MS) recentContactSubmissions.delete(key);
+    }
+  }
+  return true;
 }
 
 function adminBumpAttempt(ip, attempt) {

@@ -335,8 +335,11 @@ function ProductPage() {
 function QuestionSection() {
   const [form, setForm] = useState({ name: "", phone: "", email: "", message: "" });
   const [status, setStatus] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const submit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setStatus("");
     try {
       await fetch("/api/contact", {
@@ -350,6 +353,8 @@ function QuestionSection() {
       setStatus("Вопрос отправлен. Мы скоро свяжемся с вами.");
     } catch (error) {
       setStatus(error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
   return (
@@ -363,7 +368,7 @@ function QuestionSection() {
         <input placeholder="Телефон" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <textarea required placeholder="Ваш вопрос" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
-        <button className="btn" type="submit">Отправить</button>
+        <button className="btn" type="submit" disabled={isSubmitting}>{isSubmitting ? "Отправляем…" : "Отправить"}</button>
         {status && <p className="form-hint">{status}</p>}
       </form>
     </section>
