@@ -324,7 +324,7 @@ function ProductPage() {
 
       {zoomOpen && (
         <div className="image-modal" role="dialog" aria-modal="true" aria-label="Увеличенное изображение" onClick={() => setZoomOpen(false)}>
-          <button type="button" onClick={() => setZoomOpen(false)} aria-label="Закрыть">×</button>
+          <button type="button" onClick={(event) => { event.stopPropagation(); setZoomOpen(false); }} aria-label="Закрыть увеличенное изображение">×</button>
           <img src={activeImage || images[0]} alt={product.name} onClick={(event) => event.stopPropagation()} />
         </div>
       )}
