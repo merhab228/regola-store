@@ -1329,6 +1329,9 @@ textarea:focus {
   font-size: 18px;
   line-height: 1.35;
 }
+.site-footer__info a {
+  color: inherit;
+}
 .site-footer__contacts {
   justify-self: end;
   text-align: center;
@@ -2546,11 +2549,19 @@ h3,
   color: #fff;
 }
 
+.wholesale-callout > div {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .wholesale-callout p:not(.section-kicker) {
   max-width: 760px;
   margin-bottom: 0;
   font-size: clamp(20px, 1.5vw, 26px);
   line-height: 1.45;
+  text-align: center;
 }
 
 .btn--light {
