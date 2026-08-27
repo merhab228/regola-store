@@ -1,5 +1,6 @@
 import { Link, Navigate, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Layout from "./components/Layout";
 import SocialIcon from "./components/SocialIcons";
 import { useStore } from "./context/StoreContext";
@@ -322,11 +323,12 @@ function ProductPage() {
         </section>
       )}
 
-      {zoomOpen && (
+      {zoomOpen && createPortal(
         <div className="image-modal" role="dialog" aria-modal="true" aria-label="Увеличенное изображение" onClick={() => setZoomOpen(false)}>
           <button type="button" onClick={(event) => { event.stopPropagation(); setZoomOpen(false); }} aria-label="Закрыть увеличенное изображение">×</button>
           <img src={activeImage || images[0]} alt={product.name} onClick={(event) => event.stopPropagation()} />
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

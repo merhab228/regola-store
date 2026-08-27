@@ -2556,6 +2556,7 @@ h3,
   display: flex;
   align-items: center;
   justify-content: center;
+  transform: translateY(-12px);
 }
 
 .wholesale-callout p:not(.section-kicker) {
@@ -3256,6 +3257,7 @@ h3,
 
   .wholesale-callout > div {
     flex: 1 1 auto;
+    transform: none;
   }
 
   .wholesale-callout > .btn--light {
