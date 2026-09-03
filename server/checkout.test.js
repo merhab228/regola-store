@@ -51,6 +51,8 @@ function createDatabase() {
       cdek_tariff_code INTEGER,
       cdek_city_code INTEGER,
       cdek_delivery_point TEXT,
+      cancel_token_hash TEXT,
+      cancelled_at TEXT,
       total INTEGER NOT NULL,
       created_at TEXT NOT NULL
     );
@@ -127,6 +129,17 @@ test("delivery estimate uses database prices instead of client goods total", () 
   database.close();
 });
 
+test("checkout creates a one-time customer cancellation secret", () => {
+  const database = createDatabase();
+  insertProduct(database);
+  const checkout = createCheckoutRecord(database, checkoutBody());
+  const saved = database.prepare("SELECT cancel_token_hash FROM orders WHERE id = ?").get(checkout.orderId);
+  assert.match(checkout.cancelToken, /^[a-f0-9]{64}$/);
+  assert.match(saved.cancel_token_hash, /^[a-f0-9]{64}$/);
+  assert.notEqual(saved.cancel_token_hash, checkout.cancelToken);
+  database.close();
+});
+
 test("invalid quantities are rejected before an order is written", async (t) => {
   const invalidQuantities = [0, -1, 1.5, "1", Number.NaN, Number.POSITIVE_INFINITY, MAX_QTY_PER_PRODUCT + 1];
   for (const qty of invalidQuantities) {
@@ -156,7 +169,7 @@ test("checkout customer fields enforce server-side types and length limits", asy
     { label: "fake name", value: { name: "123456" } },
     { label: "short russian phone", value: { phone: "83838383" } },
     { label: "fake city", value: { city: "ппп" } },
-    { label: "courier address without house", value: { deliveryMethod: "СДЭК курьером", address: "Тверская улица" } },
+    { label: "courier delivery is unavailable", value: { deliveryMethod: "СДЭК курьером", address: "Тверская улица, 1" } },
   ];
   for (const scenario of invalidBodies) {
     await t.test(scenario.label, () => {
@@ -178,6 +191,7 @@ test("checkout accepts only online payment and CDEK delivery", () => {
   for (const body of [
     checkoutBody({ paymentMethod: "invoice" }),
     checkoutBody({ paymentMethod: "cod" }),
+    checkoutBody({ deliveryMethod: "СДЭК курьером" }),
     checkoutBody({ deliveryMethod: "Почта России" }),
   ]) {
     assert.throws(() => createCheckoutRecord(database, body), CheckoutValidationError);

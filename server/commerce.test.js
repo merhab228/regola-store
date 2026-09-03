@@ -50,12 +50,13 @@ test("T-Bank Init receives authoritative kopecks, receipt and signed request", a
     },
   });
   const result = await client.initPayment({
-    order: { id: 7, total: 2300, deliveryPrice: 300, phone: "+7 999 111-22-33", email: "buyer@example.ru" },
+    order: { id: 7, total: 2300, deliveryPrice: 300, phone: "+7 999 111-22-33", email: "buyer@example.ru", cancelToken: "a".repeat(64) },
     items: [{ productId: 1, name: "Ручка Regola", price: 1000, qty: 2 }],
   });
 
   assert.equal(captured.url, "https://rest-api-test.tinkoff.ru/v2/Init");
   assert.equal(captured.body.Amount, 230000);
+  assert.match(captured.body.SuccessURL, /\/order\/7\?payment=success&token=a{64}$/);
   assert.equal(captured.body.Receipt.Items.reduce((sum, item) => sum + item.Amount, 0), 230000);
   assert.equal(captured.body.Token, createTbankToken(captured.body, tbankEnv.TBANK_PASSWORD));
   assert.equal(result.paymentId, "pay-77");
@@ -71,10 +72,24 @@ test("a DEMO terminal automatically uses the securepay endpoint", async () => {
     },
   });
   await client.initPayment({
-    order: { id: 8, total: 1000, deliveryPrice: 0, phone: "+79991112233", email: "buyer@example.ru" },
+    order: { id: 8, total: 1000, deliveryPrice: 0, phone: "+79991112233", email: "buyer@example.ru", cancelToken: "b".repeat(64) },
     items: [{ productId: 1, name: "Ручка Regola", price: 1000, qty: 1 }],
   });
   assert.equal(capturedUrl, "https://securepay.tinkoff.ru/v2/Init");
+});
+
+test("T-Bank cancellation signs and sends a full refund request", async () => {
+  let captured;
+  const client = createTbankClient(tbankEnv, {
+    fetchImpl: async (url, options) => {
+      captured = { url, body: JSON.parse(options.body) };
+      return jsonResponse({ Success: true, PaymentId: "pay-77", Status: "REFUNDED" });
+    },
+  });
+  const result = await client.cancelPayment({ paymentId: "pay-77" });
+  assert.equal(captured.url, "https://rest-api-test.tinkoff.ru/v2/Cancel");
+  assert.equal(captured.body.Token, createTbankToken(captured.body, tbankEnv.TBANK_PASSWORD));
+  assert.equal(result.paymentStatus, "refunded");
 });
 
 test("T-Bank notification rejects price/payment mismatches and is idempotent", () => {
@@ -102,8 +117,20 @@ test("T-Bank notification rejects price/payment mismatches and is idempotent", (
   };
   notification.Token = createTbankToken(notification, tbankEnv.TBANK_PASSWORD);
 
-  assert.deepEqual(processTbankNotification({ database, client, payload: notification }), { statusCode: 200, body: "OK" });
-  assert.deepEqual(processTbankNotification({ database, client, payload: notification }), { statusCode: 200, body: "OK" });
+  assert.deepEqual(processTbankNotification({ database, client, payload: notification }), {
+    statusCode: 200,
+    body: "OK",
+    orderId: 7,
+    paymentStatus: "paid",
+    paymentJustConfirmed: true,
+  });
+  assert.deepEqual(processTbankNotification({ database, client, payload: notification }), {
+    statusCode: 200,
+    body: "OK",
+    orderId: 7,
+    paymentStatus: "paid",
+    paymentJustConfirmed: false,
+  });
   assert.equal(database.prepare("SELECT payment_status FROM orders WHERE id = 7").get().payment_status, "paid");
 
   const wrongAmount = { ...notification, Amount: 1 };
@@ -119,6 +146,7 @@ test("T-Bank statuses map to internal order states", () => {
   assert.equal(paymentStatusFromTbank("CONFIRMED"), "paid");
   assert.equal(paymentStatusFromTbank("REJECTED"), "failed");
   assert.equal(paymentStatusFromTbank("REFUNDED"), "refunded");
+  assert.equal(paymentStatusFromTbank("REVERSED"), "refunded");
   assert.equal(paymentStatusFromTbank("NEW"), "pending");
 });
 
@@ -130,12 +158,11 @@ test("CDEK test API calculates tariff, lists PVZ and creates COD shipment", asyn
     CDEK_CLIENT_SECRET: "secret",
     CDEK_FROM_CITY_CODE: "137",
     CDEK_TARIFF_PVZ: "136",
-    CDEK_TARIFF_COURIER: "137",
-    CDEK_PACKAGE_WEIGHT_G: "800",
-    CDEK_PACKAGE_LENGTH_CM: "25",
-    CDEK_PACKAGE_WIDTH_CM: "20",
-    CDEK_PACKAGE_HEIGHT_CM: "10",
-    CDEK_SHIPMENT_POINT: "SPB1",
+    CDEK_PACKAGE_WEIGHT_G: "500",
+    CDEK_PACKAGE_LENGTH_CM: "17",
+    CDEK_PACKAGE_WIDTH_CM: "14",
+    CDEK_PACKAGE_HEIGHT_CM: "7",
+    CDEK_SHIPMENT_POINT: "SPB206",
     CDEK_SENDER_NAME: "Regola",
     CDEK_SENDER_PHONE: "+79829412000",
   };
@@ -178,6 +205,11 @@ test("CDEK test API calculates tariff, lists PVZ and creates COD shipment", asyn
   const orderCall = calls.find((call) => call.url.endsWith("/orders"));
   const orderBody = JSON.parse(orderCall.options.body);
   assert.equal(orderBody.delivery_point, "MSK1");
+  assert.deepEqual(
+    { length: orderBody.packages[0].length, width: orderBody.packages[0].width, height: orderBody.packages[0].height },
+    { length: 17, width: 14, height: 7 },
+  );
+  assert.equal(orderBody.packages[0].weight, 1000);
   assert.equal(orderBody.packages[0].items[0].payment.value, 1000);
   assert.equal(orderBody.delivery_recipient_cost.value, 488);
   assert.equal(calls.filter((call) => call.url.endsWith("/oauth/token")).length, 1);

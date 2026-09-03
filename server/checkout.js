@@ -1,3 +1,5 @@
+import crypto from "crypto";
+
 export const MAX_ORDER_ITEMS = 50;
 export const MAX_QTY_PER_PRODUCT = 99;
 
@@ -12,7 +14,7 @@ const CUSTOMER_LIMITS = Object.freeze({
   fiasId: 36,
 });
 
-const DELIVERY_METHODS = new Set(["СДЭК до ПВЗ", "СДЭК курьером"]);
+const DELIVERY_METHODS = new Set(["СДЭК до ПВЗ"]);
 const PAYMENT_METHODS = new Set(["online"]);
 
 export class CheckoutValidationError extends Error {
@@ -97,14 +99,8 @@ export function validateCheckoutCustomer(body) {
   if (!PAYMENT_METHODS.has(paymentMethod)) {
     throw new CheckoutValidationError("Некорректный способ оплаты");
   }
-  if (deliveryMethod === "СДЭК курьером" && !address) {
-    throw new CheckoutValidationError("Для курьерской доставки укажите адрес");
-  }
   if (address && !/[\p{L}]/u.test(address)) {
     throw new CheckoutValidationError("Укажите корректный адрес");
-  }
-  if (deliveryMethod !== "СДЭК до ПВЗ" && address && !/\d/u.test(address)) {
-    throw new CheckoutValidationError("В адресе должен быть указан номер дома");
   }
 
   return { name, phone: normalizedPhone, email, city, address, comment, deliveryMethod, paymentMethod, deliveryPointCode, cdekCityCode, cityFiasId, addressFiasId };
@@ -217,21 +213,23 @@ export function createCheckoutRecord(database, body, { saveOrderMessage, deliver
     const delivery = buildDeliveryLabel(customer, estimate.deliveryPrice);
     const payment = buildPaymentLabel(customer.paymentMethod);
     const paymentMeta = initialPaymentMeta(customer.paymentMethod);
+    const cancelToken = crypto.randomBytes(32).toString("hex");
+    const cancelTokenHash = crypto.createHash("sha256").update(cancelToken, "utf8").digest("hex");
     const result = database.prepare(`
       INSERT INTO orders (
         user_id, status, name, phone, email, city, address, comment,
         delivery, delivery_method, delivery_price, goods_total,
         payment, payment_method, payment_status, payment_provider,
         cdek_tariff_code, cdek_city_code, cdek_delivery_point,
-        total, created_at
+        cancel_token_hash, total, created_at
       )
-      VALUES (0, 'обрабатывается', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (0, 'обрабатывается', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       customer.name, customer.phone, customer.email, customer.city, customer.address, customer.comment,
       delivery, customer.deliveryMethod, estimate.deliveryPrice, cart.goodsTotal,
       payment, customer.paymentMethod, paymentMeta.status, paymentMeta.provider,
       estimate.tariffCode || null, estimate.cityCode || customer.cdekCityCode || null, customer.deliveryPointCode,
-      total, createdAt
+      cancelTokenHash, total, createdAt
     );
     const orderId = Number(result.lastInsertRowid);
     const insertItem = database.prepare(`
@@ -260,6 +258,7 @@ export function createCheckoutRecord(database, body, { saveOrderMessage, deliver
     const message = saveOrderMessage ? saveOrderMessage(messagePayload) : { ...messagePayload, payload: messagePayload };
     return {
       orderId,
+      cancelToken,
       message,
       total,
       goodsTotal: cart.goodsTotal,
@@ -273,6 +272,7 @@ export function createCheckoutRecord(database, body, { saveOrderMessage, deliver
         goodsTotal: cart.goodsTotal,
         deliveryPrice: estimate.deliveryPrice,
         paymentStatus: paymentMeta.status,
+        cancelToken,
       },
     };
   });
@@ -340,6 +340,8 @@ export function createCheckoutHandler({
 
     const row = database.prepare("SELECT * FROM orders WHERE id = ?").get(checkout.orderId);
     const responseOrder = serializeOrder(row);
+    responseOrder.cancelToken = checkout.cancelToken;
+    responseOrder.cancelUrl = `/order/${checkout.orderId}?token=${encodeURIComponent(checkout.cancelToken)}`;
     if (paymentError) responseOrder.paymentError = paymentError;
     return res.status(201).json(responseOrder);
   };

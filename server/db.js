@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS orders (
   cdek_tariff_code INTEGER,
   cdek_city_code INTEGER,
   cdek_delivery_point TEXT,
+  cancel_token_hash TEXT,
+  cancelled_at TEXT,
   total INTEGER NOT NULL,
   created_at TEXT NOT NULL
 );
@@ -155,6 +157,8 @@ for (const [column, type] of [
   ["cdek_tariff_code", "INTEGER"],
   ["cdek_city_code", "INTEGER"],
   ["cdek_delivery_point", "TEXT"],
+  ["cancel_token_hash", "TEXT"],
+  ["cancelled_at", "TEXT"],
 ]) {
   if (!orderColNames.has(column)) db.exec(`ALTER TABLE orders ADD COLUMN ${column} ${type}`);
 }

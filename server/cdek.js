@@ -131,9 +131,8 @@ export function createCdekClient(env = process.env, { fetchImpl = globalThis.fet
     const tariffCode = positiveInteger(order.cdekTariffCode)
       ? Number(order.cdekTariffCode)
       : tariffFor(config, order.deliveryMethod);
-    const isPvz = order.deliveryMethod === "СДЭК до ПВЗ";
-    if (isPvz && !order.cdekDeliveryPoint) throw new CdekError("Для заказа не выбран ПВЗ СДЭК", "PVZ_REQUIRED");
-    if (!isPvz && !order.address) throw new CdekError("Для курьерской доставки нужен адрес", "ADDRESS_REQUIRED");
+    if (order.deliveryMethod !== "СДЭК до ПВЗ") throw new CdekError("Доступна только доставка до ПВЗ СДЭК", "METHOD_NOT_AVAILABLE");
+    if (!order.cdekDeliveryPoint) throw new CdekError("Для заказа не выбран ПВЗ СДЭК", "PVZ_REQUIRED");
     const cod = order.paymentMethod === "cod";
     const payload = {
       type: 1,
@@ -146,8 +145,8 @@ export function createCdekClient(env = process.env, { fetchImpl = globalThis.fet
         phones: [{ number: normalizePhone(order.phone) }],
       },
       from_location: { code: config.fromCityCode },
-      to_location: { code: order.cdekCityCode || undefined, city: order.city, address: isPvz ? undefined : order.address },
-      delivery_point: isPvz ? order.cdekDeliveryPoint : undefined,
+      to_location: { code: order.cdekCityCode || undefined, city: order.city },
+      delivery_point: order.cdekDeliveryPoint,
       delivery_recipient_cost: { value: cod ? order.deliveryPrice : 0 },
       packages: [{
         ...packageFor(config, items.reduce((sum, item) => sum + item.qty, 0)),
@@ -216,7 +215,6 @@ function readConfig(env) {
     clientSecret: String(env.CDEK_CLIENT_SECRET || "").trim(),
     fromCityCode: Number(env.CDEK_FROM_CITY_CODE || env.CDEK_SENDER_CITY_CODE),
     tariffPvz: Number(env.CDEK_TARIFF_PVZ),
-    tariffCourier: Number(env.CDEK_TARIFF_COURIER),
     unitWeight: Number(env.CDEK_PACKAGE_WEIGHT_G),
     packageLength: Number(env.CDEK_PACKAGE_LENGTH_CM),
     packageWidth: Number(env.CDEK_PACKAGE_WIDTH_CM),
@@ -227,7 +225,7 @@ function readConfig(env) {
   };
   config.canEstimate = Boolean(
     config.clientId && config.clientSecret && positiveInteger(config.fromCityCode)
-    && positiveInteger(config.tariffPvz) && positiveInteger(config.tariffCourier)
+    && positiveInteger(config.tariffPvz)
     && positiveInteger(config.unitWeight) && positiveInteger(config.packageLength)
     && positiveInteger(config.packageWidth) && positiveInteger(config.packageHeight)
   );
@@ -245,7 +243,6 @@ function requireOrderConfig(config) {
 
 function tariffFor(config, method) {
   if (method === "СДЭК до ПВЗ") return config.tariffPvz;
-  if (method === "СДЭК курьером") return config.tariffCourier;
   throw new CdekError("Для выбранной доставки нет тарифа СДЭК", "TARIFF_NOT_AVAILABLE");
 }
 

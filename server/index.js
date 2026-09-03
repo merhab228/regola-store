@@ -15,6 +15,7 @@ import { createTbankClient, processTbankNotification } from "./tbank.js";
 import { createCdekClient } from "./cdek.js";
 import { createDadataClient, DadataError } from "./dadata.js";
 import { createTelegramBot } from "./telegramBot.js";
+import { requestTelegramBotApi } from "./telegramApi.js";
 import { formatNotification, sendEmailNotification } from "./emailNotifier.js";
 
 const app = express();
@@ -202,7 +203,64 @@ app.post("/api/checkout", createCheckoutHandler({
 
 app.post("/api/payments/tbank/notification", (req, res) => {
   const result = processTbankNotification({ database: db, client: tbankClient, payload: req.body });
-  return res.status(result.statusCode).type("text/plain").send(result.body);
+  const response = res.status(result.statusCode).type("text/plain").send(result.body);
+  if (result.paymentJustConfirmed) {
+    setImmediate(() => notifyPaidOrder(result.orderId));
+  }
+  return response;
+});
+
+app.get("/api/orders/:id/status", (req, res) => {
+  const order = findCustomerOrder(req.params.id, req.query.token);
+  if (!order) return res.status(404).json({ message: "Заказ или ссылка отмены недействительны" });
+  return res.json(customerOrderStatus(order));
+});
+
+app.post("/api/orders/:id/cancel", async (req, res) => {
+  const order = findCustomerOrder(req.params.id, req.body?.token);
+  if (!order) return res.status(404).json({ message: "Заказ или ссылка отмены недействительны" });
+  if (order.status === "отменён" || order.status === "отменен") {
+    return res.json(customerOrderStatus(order));
+  }
+  if (order.cdek_uuid) {
+    return res.status(409).json({ message: "Отправление уже создано в СДЭК. Для отмены свяжитесь с магазином." });
+  }
+  if (order.status !== "обрабатывается") {
+    return res.status(409).json({ message: "Заказ уже обрабатывается. Для отмены свяжитесь с магазином." });
+  }
+
+  const claimed = db.prepare(`
+    UPDATE orders SET status = 'отмена запрошена'
+    WHERE id = ? AND status = 'обрабатывается' AND cdek_uuid IS NULL
+  `).run(order.id);
+  if (claimed.changes !== 1) {
+    return res.status(409).json({ message: "Статус заказа изменился. Обновите страницу и попробуйте снова." });
+  }
+
+  try {
+    let paymentStatus = order.payment_status;
+    if (order.payment_id && !["refunded", "cancelled", "failed", "expired"].includes(paymentStatus)) {
+      const cancellation = await tbankClient.cancelPayment({ paymentId: order.payment_id });
+      paymentStatus = cancellation.paymentStatus === "pending"
+        ? (order.payment_status === "paid" ? "refund_pending" : "cancelled")
+        : cancellation.paymentStatus;
+    } else if (order.payment_status === "paid") {
+      throw new Error("Не найден идентификатор оплаченного платежа");
+    } else if (!["refunded", "failed", "expired"].includes(paymentStatus)) {
+      paymentStatus = "cancelled";
+    }
+
+    db.prepare(`
+      UPDATE orders SET status = 'отменён', payment_status = ?, cancelled_at = ? WHERE id = ?
+    `).run(paymentStatus, new Date().toISOString(), order.id);
+    const cancelled = db.prepare("SELECT * FROM orders WHERE id = ?").get(order.id);
+    setImmediate(() => notifyCancelledOrder(cancelled));
+    return res.json(customerOrderStatus(cancelled));
+  } catch (error) {
+    db.prepare("UPDATE orders SET status = 'обрабатывается' WHERE id = ? AND status = 'отмена запрошена'").run(order.id);
+    console.warn(`[Regola] Customer cancellation failed for order ${order.id}:`, error.message);
+    return res.status(502).json({ message: "Не удалось отменить оплату автоматически. Повторите попытку или свяжитесь с магазином." });
+  }
 });
 
 app.get("/api/me", authRequired, (req, res) => {
@@ -274,6 +332,9 @@ app.post("/api/admin/orders/:id/cdek", authRequired, adminRequired, async (req, 
   const row = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
   if (!row) return res.status(404).json({ message: "Заказ не найден" });
   if (row.cdek_uuid) return res.json(withItems(row));
+  if (row.status !== "обрабатывается") {
+    return res.status(409).json({ message: "Нельзя создать отправление для отменённого заказа" });
+  }
   if (!String(row.delivery_method || "").startsWith("СДЭК")) {
     return res.status(400).json({ message: "Для заказа не выбрана доставка СДЭК" });
   }
@@ -554,15 +615,50 @@ async function notifyAdministrators(title, data) {
   await Promise.all([notifyTelegram(title, data), sendEmailNotification(title, data)]);
 }
 
+async function notifyPaidOrder(orderId) {
+  const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
+  if (!order) return;
+  const items = db.prepare("SELECT name, qty, price FROM order_items WHERE order_id = ? ORDER BY id").all(orderId);
+  const data = {
+    name: order.name,
+    phone: order.phone,
+    email: order.email,
+    message: `Заказ №${order.id} оплачен — можно собирать и отправлять. Доставка: ${order.delivery}`,
+    payload: { items, total: order.total },
+  };
+  try {
+    await notifyAdministrators(`Заказ №${order.id} оплачен — можно собирать и отправлять`, data);
+  } catch (error) {
+    console.warn(`[Regola] Paid order notification failed for order ${order.id}:`, error.message);
+  }
+}
+
+async function notifyCancelledOrder(order) {
+  if (!order) return;
+  const items = db.prepare("SELECT name, qty, price FROM order_items WHERE order_id = ? ORDER BY id").all(order.id);
+  const data = {
+    name: order.name,
+    phone: order.phone,
+    email: order.email,
+    message: `Покупатель самостоятельно отменил заказ №${order.id}. Статус оплаты: ${order.payment_status}.`,
+    payload: { items, total: order.total },
+  };
+  try {
+    await notifyAdministrators(`Заказ №${order.id} отменён покупателем`, data);
+  } catch (error) {
+    console.warn(`[Regola] Cancelled order notification failed for order ${order.id}:`, error.message);
+  }
+}
+
 async function notifyTelegram(title, data) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId || typeof fetch !== "function") return;
   try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text: formatNotification(title, data) }),
+    await requestTelegramBotApi({
+      token,
+      method: "sendMessage",
+      body: { chat_id: chatId, text: formatNotification(title, data) },
     });
   } catch (error) {
     console.warn("[Regola] Telegram notification failed:", error.message);
@@ -612,6 +708,30 @@ function withItems(order) {
     total: order.total,
     createdAt: order.created_at,
     items,
+  };
+}
+
+function findCustomerOrder(id, token) {
+  const orderId = Number(id);
+  const value = String(token || "").trim();
+  if (!Number.isSafeInteger(orderId) || orderId <= 0 || !/^[a-f0-9]{64}$/i.test(value)) return null;
+  const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(orderId);
+  if (!order?.cancel_token_hash) return null;
+  const suppliedHash = crypto.createHash("sha256").update(value, "utf8").digest("hex");
+  return constantTimeSecretEqual(suppliedHash, order.cancel_token_hash) ? order : null;
+}
+
+function customerOrderStatus(order) {
+  const paymentStatus = order.payment_status || "pending";
+  return {
+    id: order.id,
+    status: order.status,
+    paymentStatus,
+    total: order.total,
+    createdAt: order.created_at,
+    canCancel: order.status === "обрабатывается"
+      && !order.cdek_uuid
+      && !["refunded", "cancelled"].includes(paymentStatus),
   };
 }
 

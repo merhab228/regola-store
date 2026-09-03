@@ -47,6 +47,25 @@ export function createTbankClient(env = process.env, { fetchImpl = globalThis.fe
         status: String(response.Status || "NEW"),
       };
     },
+    async cancelPayment({ paymentId }) {
+      requireConfigured(config);
+      if (typeof fetchImpl !== "function") throw new TbankError("Fetch API недоступен", "NETWORK_UNAVAILABLE");
+      const request = {
+        TerminalKey: config.terminalKey,
+        PaymentId: String(paymentId || "").trim(),
+      };
+      if (!request.PaymentId) throw new TbankError("У заказа отсутствует идентификатор платежа", "PAYMENT_ID_REQUIRED");
+      request.Token = createTbankToken(request, config.password);
+      const response = await postJson(`${config.apiUrl}/Cancel`, request, fetchImpl);
+      if (!response?.Success) {
+        throw new TbankError(safeProviderMessage(response), String(response?.ErrorCode || "CANCEL_FAILED"));
+      }
+      return {
+        paymentId: String(response.PaymentId || request.PaymentId),
+        providerStatus: String(response.Status || ""),
+        paymentStatus: paymentStatusFromTbank(response.Status),
+      };
+    },
   };
 }
 
@@ -69,6 +88,8 @@ export function paymentStatusFromTbank(status) {
   if (value === "DEADLINE_EXPIRED") return "expired";
   if (value === "REFUNDED") return "refunded";
   if (value === "PARTIAL_REFUNDED") return "partially_refunded";
+  if (value === "REVERSED") return "refunded";
+  if (value === "PARTIAL_REVERSED") return "partially_refunded";
   return "pending";
 }
 
@@ -96,13 +117,15 @@ export function processTbankNotification({ database, client, payload }) {
     return { statusCode: 409, body: "PAYMENT MISMATCH" };
   }
 
+  const paymentStatus = paymentStatusFromTbank(payload.Status);
+  const paymentJustConfirmed = paymentStatus === "paid" && order.payment_status !== "paid";
   database.prepare(`
     UPDATE orders
     SET payment_status = ?, payment_provider = 'tbank',
         payment_id = COALESCE(payment_id, ?), payment_amount_kopecks = ?
     WHERE id = ?
-  `).run(paymentStatusFromTbank(payload.Status), paymentId || null, amount, orderId);
-  return { statusCode: 200, body: "OK" };
+  `).run(paymentStatus, paymentId || null, amount, orderId);
+  return { statusCode: 200, body: "OK", orderId, paymentStatus, paymentJustConfirmed };
 }
 
 function readConfig(env) {
@@ -176,8 +199,8 @@ function buildInitRequest(config, order, items) {
     PayType: "O",
     Language: "ru",
     NotificationURL: `${config.publicBaseUrl}/api/payments/tbank/notification`,
-    SuccessURL: `${config.publicBaseUrl}/cart?payment=success&order=${order.id}`,
-    FailURL: `${config.publicBaseUrl}/cart?payment=fail&order=${order.id}`,
+    SuccessURL: `${config.publicBaseUrl}/order/${order.id}?payment=success&token=${encodeURIComponent(order.cancelToken)}`,
+    FailURL: `${config.publicBaseUrl}/order/${order.id}?payment=fail&token=${encodeURIComponent(order.cancelToken)}`,
     DATA: { order_id: String(order.id) },
     Receipt: {
       Phone: normalizePhone(order.phone),

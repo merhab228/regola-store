@@ -24,6 +24,7 @@ function PriceBlock({ product, large = false }) {
   return (
     <div className={"price-block" + (large ? " price-block--large" : "")}>
       <p className="price-block__value"><b>{formatRub(product.price)} ₽</b></p>
+      <small className="price-block__delivery">без учёта доставки</small>
     </div>
   );
 }
@@ -106,7 +107,7 @@ function PaymentDeliveryPage() {
         <div className="payment-detail__content">
           <h2 id="delivery-heading">Доставка</h2>
           <p className="payment-detail__lead">Мы сделали доставку простой и быстрой, чтобы вы получили свой заказ в целости в удобный для вас срок.</p>
-          <div className="payment-detail__items"><div><h3>Доставка в регионы России</h3><p><b>Отправляем в любой населённый пункт транспортными компаниями СДЭК.</b><br />Стоимость: от 350 руб. (рассчитывается индивидуально).<br />После отправки вы получите трек-номер для отслеживания.</p></div></div>
+          <div className="payment-detail__items"><div><h3>Доставка в регионы России</h3><p><b>Отправляем службой СДЭК только до пункта выдачи.</b><br />Стоимость рассчитывается отдельно по выбранному ПВЗ и добавляется к сумме заказа до перехода к оплате. Повторно оплачивать доставку не потребуется.<br />После отправки вы получите трек-номер для отслеживания.</p></div></div>
         </div>
         <div className="payment-detail__visual payment-detail__visual--delivery"><img src="/delivery-reference.jpg" alt="Курьер с заказом у грузового автомобиля" /></div>
       </section>
@@ -302,7 +303,7 @@ function ProductPage() {
           )}
           <div className="product-assurance">
             <span><b>Онлайн-оплата</b>Защищённая форма Т‑Банка</span>
-            <span><b>Доставка</b>СДЭК до ПВЗ или курьером</span>
+            <span><b>Доставка</b>СДЭК до выбранного ПВЗ</span>
             <span><b>Гарантия</b>1 год на продукцию Regola</span>
           </div>
           <MarketplaceLinks product={product} compact={true} />
@@ -313,7 +314,7 @@ function ProductPage() {
         <article className="product-detail product-detail--wide"><h2>Описание</h2><DescriptionText text={product.description} /></article>
         {product.specifications && <article className="product-detail"><h2>Характеристики</h2><DetailList text={product.specifications} /></article>}
         {product.packageContents && <article className="product-detail"><h2>Комплектация</h2><DetailList text={product.packageContents} /></article>}
-        <article className="product-detail"><h2>Доставка и гарантия</h2><p>Доставка выполняется службой СДЭК до пункта выдачи или курьером. Срок и стоимость рассчитываются при оформлении. Гарантия на товар — 1 год.</p></article>
+        <article className="product-detail"><h2>Доставка и гарантия</h2><p>Доставка выполняется службой СДЭК до выбранного пункта выдачи. Её стоимость рассчитывается отдельно, показывается в корзине и включается в итоговую онлайн-оплату. Гарантия на товар — 1 год.</p></article>
       </section>
 
       {related.length > 0 && (
@@ -398,8 +399,8 @@ function CartPage() {
   const [deliveryPoints, setDeliveryPoints] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [citySuggestions, setCitySuggestions] = useState([]);
-  const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [suggestionError, setSuggestionError] = useState("");
+  const [orderActionUrl, setOrderActionUrl] = useState("");
   const paymentResult = searchParams.get("payment");
   const [status, setStatus] = useState(
     paymentResult === "success"
@@ -431,24 +432,6 @@ function CartPage() {
     }, 350);
     return () => { active = false; clearTimeout(timer); };
   }, [commerce.addressSuggestionsEnabled, form.city, form.cityFiasId, suggestAddress]);
-
-  useEffect(() => {
-    setAddressSuggestions([]);
-    if (!commerce.addressSuggestionsEnabled || !form.cityFiasId || form.addressFiasId || form.address.trim().length < 2) return undefined;
-    let active = true;
-    const timer = setTimeout(async () => {
-      try {
-        const suggestions = await suggestAddress({ kind: "address", query: form.address, cityFiasId: form.cityFiasId });
-        if (active) {
-          setAddressSuggestions(suggestions);
-          setSuggestionError(suggestions.length ? "" : "Адрес не найден. Укажите улицу и дом.");
-        }
-      } catch (error) {
-        if (active) setSuggestionError(error.message);
-      }
-    }, 350);
-    return () => { active = false; clearTimeout(timer); };
-  }, [commerce.addressSuggestionsEnabled, form.address, form.addressFiasId, form.cityFiasId, suggestAddress]);
 
   const estimateDelivery = async () => {
     setStatus("");
@@ -482,10 +465,6 @@ function CartPage() {
       setStatus("Выберите город из выпадающего списка подсказок.");
       return;
     }
-    if (commerce.addressSuggestionsEnabled && form.deliveryMethod !== "СДЭК до ПВЗ" && !form.addressFiasId) {
-      setStatus("Выберите полный адрес с номером дома из выпадающего списка.");
-      return;
-    }
     if (commerce.cdekApiEnabled && form.deliveryMethod === "СДЭК до ПВЗ" && !form.deliveryPointCode) {
       setStatus("Рассчитайте доставку и выберите пункт выдачи СДЭК.");
       return;
@@ -497,6 +476,7 @@ function CartPage() {
         paymentMethod: "online",
         items: cartItems.map((item) => ({ productId: item.id, qty: item.qty })),
       });
+      setOrderActionUrl(order.cancelUrl || "");
       if (order.paymentUrl) {
         setStatus("Переходим на защищённую платёжную форму T-Банка...");
         sessionStorage.setItem("regola_pending_order", String(order.id));
@@ -556,21 +536,21 @@ function CartPage() {
             <input type="email" autoComplete="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <div className="checkout-grid">
               <div className="suggest-field">
-                <input required autoComplete="off" placeholder="Начните вводить город" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value, cityFiasId: "", address: "", addressFiasId: "", cdekCityCode: null, deliveryPointCode: "" })} />
+                <input required autoComplete="off" placeholder="Начните вводить город" value={form.city} onChange={(e) => { setForm({ ...form, city: e.target.value, cityFiasId: "", address: "", addressFiasId: "", cdekCityCode: null, deliveryPointCode: "" }); setDeliveryEstimate(null); setDeliveryPoints([]); }} />
                 {citySuggestions.length > 0 && (
                   <div className="suggest-menu" role="listbox">
                     {citySuggestions.map((item) => (
-                      <button key={item.fiasId} type="button" onClick={() => { setForm({ ...form, city: item.value, cityFiasId: item.fiasId, address: "", addressFiasId: "", cdekCityCode: null, deliveryPointCode: "" }); setCitySuggestions([]); setSuggestionError(""); }}>
+                      <button key={item.fiasId} type="button" onClick={() => { setForm({ ...form, city: item.value, cityFiasId: item.fiasId, address: "", addressFiasId: "", cdekCityCode: null, deliveryPointCode: "" }); setDeliveryEstimate(null); setDeliveryPoints([]); setCitySuggestions([]); setSuggestionError(""); }}>
                         {item.label}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-              <select value={form.deliveryMethod} onChange={(e) => { setForm({ ...form, deliveryMethod: e.target.value, address: "", addressFiasId: "", cdekCityCode: null, deliveryPointCode: "" }); setDeliveryEstimate(null); setDeliveryPoints([]); }}>
-                <option>СДЭК до ПВЗ</option>
-                <option>СДЭК курьером</option>
-              </select>
+              <div className="delivery-choice">
+                <b>СДЭК до ПВЗ</b>
+                <small>Курьерская доставка недоступна</small>
+              </div>
             </div>
             {form.deliveryMethod === "СДЭК до ПВЗ" && deliveryPoints.length > 0 && (
               <select required value={form.deliveryPointCode} onChange={(e) => setForm({ ...form, deliveryPointCode: e.target.value })}>
@@ -578,26 +558,12 @@ function CartPage() {
                 {deliveryPoints.map((point) => <option key={point.code} value={point.code}>{point.address || point.name}</option>)}
               </select>
             )}
-            {form.deliveryMethod !== "СДЭК до ПВЗ" && (
-              <div className="suggest-field">
-                <input required autoComplete="street-address" placeholder="Начните вводить улицу и дом" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value, addressFiasId: "" })} />
-                {addressSuggestions.length > 0 && (
-                  <div className="suggest-menu" role="listbox">
-                    {addressSuggestions.map((item) => (
-                      <button key={`${item.fiasId}-${item.value}`} type="button" disabled={!item.hasHouse} onClick={() => { setForm({ ...form, address: item.value, addressFiasId: item.fiasId }); setAddressSuggestions([]); setSuggestionError(""); }}>
-                        {item.label}{item.hasHouse ? "" : " — укажите дом"}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
             {commerce.addressSuggestionsEnabled && suggestionError && <p className="form-hint suggestion-error">{suggestionError}</p>}
             <div className={commerce.tbankEnabled ? "payment-choice is-ready" : "payment-choice"}>
               <span aria-hidden="true">✓</span>
               <div><b>Онлайн-оплата через Т‑Банк</b><small>{commerce.tbankLive ? "Боевой терминал · защищённое соединение" : commerce.tbankEnabled ? "Тестовый терминал · реальные списания отключены" : "Временно недоступна"}</small></div>
             </div>
-            <button type="button" onClick={estimateDelivery}>Рассчитать доставку СДЭК</button>
+            <button type="button" onClick={estimateDelivery}>Рассчитать доставку до ПВЗ</button>
             {deliveryEstimate && (
               <p className="delivery-estimate">
                 {deliveryEstimate.tariff}: {formatRub(deliveryEstimate.deliveryPrice)} ₽, {deliveryEstimate.minDays}–{deliveryEstimate.maxDays} дн.
@@ -607,6 +573,7 @@ function CartPage() {
             <textarea placeholder="Комментарий к заказу" value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} />
             <button className="btn btn--checkout" type="submit" disabled={isSubmitting || !commerce.tbankEnabled}>{isSubmitting ? "Создаём платёж…" : `Перейти к оплате · ${formatRub(orderTotal)} ₽`}</button>
             {status && <p className="form-hint checkout-status" role="status" aria-live="polite">{status}</p>}
+            {orderActionUrl && <Link to={orderActionUrl}>Открыть заказ или отменить его</Link>}
           </form>
         </>
       )}
@@ -681,10 +648,81 @@ const PAYMENT_STATUS_LABELS = {
   expired: "истёк",
   refunded: "возвращён",
   partially_refunded: "частичный возврат",
+  refund_pending: "возврат оформляется",
   awaiting_cod: "оплата при получении в СДЭК",
   cod_collected: "покупатель оплатил при получении",
   awaiting_invoice: "ожидает счёта",
 };
+
+function CustomerOrderPage() {
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") || "";
+  const paymentResult = searchParams.get("payment");
+  const [order, setOrder] = useState(null);
+  const [status, setStatus] = useState(paymentResult === "success" ? "Платёж обрабатывается…" : "");
+  const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+
+  const loadOrder = async () => {
+    try {
+      const response = await fetch(`/api/orders/${encodeURIComponent(id)}/status?token=${encodeURIComponent(token)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Не удалось открыть заказ");
+      setOrder(data);
+      setStatus("");
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadOrder(); }, [id, token]);
+
+  const cancelOrder = async () => {
+    if (!window.confirm(`Отменить заказ №${id}? Если он оплачен, будет оформлен полный возврат через Т‑Банк.`)) return;
+    setCancelling(true);
+    setStatus("Отменяем заказ…");
+    try {
+      const response = await fetch(`/api/orders/${encodeURIComponent(id)}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Не удалось отменить заказ");
+      setOrder(data);
+      setStatus(data.paymentStatus === "refunded" || data.paymentStatus === "refund_pending"
+        ? "Заказ отменён. Возврат денег оформлен; срок зачисления зависит от банка покупателя."
+        : "Заказ отменён.");
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  return (
+    <section className="content-page order-status-page">
+      <h1>Заказ №{id}</h1>
+      {loading ? <p>Загружаем заказ…</p> : order && (
+        <div className="order-status-card">
+          <p><b>Статус заказа:</b> {order.status}</p>
+          <p><b>Статус оплаты:</b> {PAYMENT_STATUS_LABELS[order.paymentStatus] || order.paymentStatus}</p>
+          <p><b>Сумма:</b> {formatRub(order.total)} ₽</p>
+          {order.canCancel ? (
+            <button className="btn order-cancel-button" type="button" onClick={cancelOrder} disabled={cancelling}>
+              {cancelling ? "Отменяем…" : "Отменить заказ"}
+            </button>
+          ) : order.status !== "отменён" && <p>Самостоятельная отмена уже недоступна. Пожалуйста, <Link to="/contacts">свяжитесь с магазином</Link>.</p>}
+        </div>
+      )}
+      {status && <p className="form-hint checkout-status" role="status" aria-live="polite">{status}</p>}
+      <p><Link to="/">Вернуться в каталог</Link></p>
+    </section>
+  );
+}
 
 function formatDateTime(value) {
   if (!value) return "";
@@ -1018,6 +1056,7 @@ export default function App() {
         <Route path="/contacts" element={<ContactsPage />} />
         <Route path="/product/:id" element={<ProductPage />} />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/order/:id" element={<CustomerOrderPage />} />
         {ADMIN_ENTRY_ROUTES.map((path) => <Route key={path} path={path} element={<AdminLoginPage />} />)}
         <Route path="/admin" element={<AdminPage />} />
       </Routes>

@@ -1,4 +1,5 @@
-const TELEGRAM_API = "https://api.telegram.org";
+import { requestTelegramBotApi } from "./telegramApi.js";
+
 const POLL_TIMEOUT_SECONDS = 25;
 const RETRY_DELAY_MS = 5_000;
 
@@ -6,22 +7,22 @@ const RETRY_DELAY_MS = 5_000;
  * Small Telegram Bot API client with no additional runtime dependency.
  * It is deliberately restricted to explicitly configured administrator chats.
  */
-export function createTelegramBot({ database, token = process.env.TELEGRAM_BOT_TOKEN, adminChatIds = configuredAdminChats(), logger = console } = {}) {
+export function createTelegramBot({
+  database,
+  token = process.env.TELEGRAM_BOT_TOKEN,
+  adminChatIds = configuredAdminChats(),
+  apiBaseUrl = process.env.TELEGRAM_BOT_API_BASE_URL,
+  fetchImpl = globalThis.fetch,
+  logger = console,
+} = {}) {
   const allowedChats = new Set(adminChatIds.map(String));
-  const enabled = Boolean(database && token && allowedChats.size && typeof fetch === "function");
+  const enabled = Boolean(database && token && allowedChats.size && typeof fetchImpl === "function");
   let offset = 0;
   let stopped = false;
   let timer = null;
 
   async function request(method, body) {
-    const response = await fetch(`${TELEGRAM_API}/bot${token}/${method}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.ok) throw new Error(result.description || `Telegram ${method} failed`);
-    return result.result;
+    return requestTelegramBotApi({ token, method, body, baseUrl: apiBaseUrl, fetchImpl });
   }
 
   async function send(chatId, text, options = {}) {

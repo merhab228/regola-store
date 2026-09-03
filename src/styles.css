@@ -571,6 +571,13 @@ textarea:focus {
 .price-block {
   margin: 10px 0 14px;
 }
+
+.price-block__delivery {
+  display: block;
+  margin-top: 3px;
+  color: var(--regola-muted);
+  font-size: 12px;
+}
 .price-block--large .price-block__value b {
   font-size: 1.65rem;
 }
@@ -2115,6 +2122,21 @@ textarea:focus {
   gap: 12px;
 }
 
+.delivery-choice {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-height: 48px;
+  padding: 9px 12px;
+  border: 1px solid var(--regola-border);
+  border-radius: 12px;
+  background: #f7f4ef;
+}
+
+.delivery-choice small {
+  color: var(--regola-muted);
+}
+
 .delivery-estimate {
   margin: 0;
   padding: 12px 14px;
@@ -2122,6 +2144,26 @@ textarea:focus {
   border-radius: 12px;
   background: rgba(26, 122, 58, 0.08);
   color: #145c2c;
+}
+
+.order-status-page {
+  display: grid;
+  gap: 18px;
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.order-status-card {
+  padding: 22px;
+  border: 1px solid var(--regola-border);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: var(--content-shadow);
+}
+
+.order-cancel-button {
+  margin-top: 10px;
+  background: #8b2f2f;
 }
 
 .floating-question {
