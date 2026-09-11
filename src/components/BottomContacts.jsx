@@ -24,13 +24,13 @@ export default function BottomContacts() {
           </nav>
         </div>
         <nav className="site-footer__contacts" aria-label="Написать нам">
-          <a href="https://t.me/" target="_blank" rel="noopener noreferrer" aria-label="Telegram" title="Telegram" className="contact-icon">
+          <a href="https://t.me/+79782870744" target="_blank" rel="noopener noreferrer" aria-label="Написать Regola в Telegram" title="Telegram Regola" className="contact-icon">
             <SocialIcon name="telegram" />
           </a>
-          <a href="https://max.ru/" target="_blank" rel="noopener noreferrer" aria-label="MAX" title="MAX" className="contact-icon">
+          <a href="https://max.ru/u/f9LHodD0cOLK1N9PmwC4ImfAZmC_l-pb6N17Bx8Fr6ul2DtWMJ0p0kLRQJ0" target="_blank" rel="noopener noreferrer" aria-label="Написать Regola в MAX" title="MAX Regola" className="contact-icon">
             <SocialIcon name="max" />
           </a>
-          <a href="https://vk.com/" target="_blank" rel="noopener noreferrer" aria-label="ВКонтакте" title="ВКонтакте" className="contact-icon">
+          <a href="https://vk.ru/id498734600" target="_blank" rel="noopener noreferrer" aria-label="Regola во ВКонтакте" title="ВКонтакте Regola" className="contact-icon">
             <SocialIcon name="vk" />
           </a>
         </nav>

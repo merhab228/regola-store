@@ -1,4 +1,5 @@
 import "./loadEnv.js";
+import { contactValidationError } from "../shared/contact.js";
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcryptjs";
@@ -125,6 +126,8 @@ app.get("/api/products/:id", (req, res) => {
 
 app.post("/api/contact", async (req, res) => {
   try {
+    const validationError = contactValidationError(req.body);
+    if (validationError) return res.status(400).json({ message: validationError });
     if (!claimContactSubmission(req, req.body)) {
       return res.status(429).json({ message: "Это обращение уже отправлено. Мы скоро свяжемся с вами." });
     }

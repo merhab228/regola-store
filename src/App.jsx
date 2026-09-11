@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Layout from "./components/Layout";
 import SocialIcon from "./components/SocialIcons";
+import { contactValidationError } from "../shared/contact.js";
 import { useStore } from "./context/StoreContext";
 
 const ADMIN_ENTRY_PRIMARY = import.meta.env.VITE_ADMIN_PATH || "/_secure-admin-7f29A228lswP";
@@ -175,11 +176,12 @@ function ContactsPage() {
           <h2>Интернет-магазин дверных ручек</h2>
           <p>г. Санкт-Петербург, проспект Героев, д. 26, к. 1</p>
           <p><a href="mailto:regola-shop@mail.ru">regola-shop@mail.ru</a></p>
+          <p>Telegram и MAX: +7 978 287 0744</p>
           <p>Напишите нам в удобном мессенджере — ответим по товару, доставке, гарантии или оптовому заказу.</p>
           <div className="contact-icon-links">
-            <a href="https://t.me/" target="_blank" rel="noreferrer" aria-label="Telegram" title="Telegram"><SocialIcon name="telegram" /></a>
-            <a href="https://max.ru/" target="_blank" rel="noreferrer" aria-label="MAX" title="MAX"><SocialIcon name="max" /></a>
-            <a href="https://vk.com/" target="_blank" rel="noreferrer" aria-label="ВКонтакте" title="ВКонтакте"><SocialIcon name="vk" /></a>
+            <a href="https://t.me/+79782870744" target="_blank" rel="noreferrer" aria-label="Написать Regola в Telegram" title="Telegram Regola"><SocialIcon name="telegram" /></a>
+            <a href="https://max.ru/u/f9LHodD0cOLK1N9PmwC4ImfAZmC_l-pb6N17Bx8Fr6ul2DtWMJ0p0kLRQJ0" target="_blank" rel="noopener noreferrer" aria-label="Написать Regola в MAX" title="MAX Regola"><SocialIcon name="max" /></a>
+            <a href="https://vk.ru/id498734600" target="_blank" rel="noopener noreferrer" aria-label="Regola во ВКонтакте" title="ВКонтакте Regola"><SocialIcon name="vk" /></a>
           </div>
         </div>
         <QuestionSection />
@@ -342,6 +344,11 @@ function QuestionSection() {
   const submit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
+    const validationError = contactValidationError(form);
+    if (validationError) {
+      setStatus(validationError);
+      return;
+    }
     setIsSubmitting(true);
     setStatus("");
     try {
@@ -364,15 +371,15 @@ function QuestionSection() {
     <section id="question" className="info-section question-section" aria-labelledby="question-heading">
       <div>
         <h2 id="question-heading">Задать вопрос</h2>
-        <p>Напишите, что хотите уточнить. Сообщение попадёт в заявки сайта, а при подключении Telegram-бота — сразу в Telegram.</p>
+        <p id="question-contact-hint">Напишите ваш вопрос и оставьте телефон или email — менеджер свяжется с вами по указанному контакту.</p>
       </div>
       <form className="question-form" onSubmit={submit}>
-        <input required placeholder="Ваше имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input placeholder="Телефон" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-        <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <textarea required placeholder="Ваш вопрос" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
+        <input required aria-label="Ваше имя" autoComplete="name" placeholder="Ваше имя" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <input type="tel" aria-label="Телефон" aria-describedby="question-contact-hint" autoComplete="tel" placeholder="Телефон — если удобнее ответ по телефону" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+        <input type="email" aria-label="Email" aria-describedby="question-contact-hint" autoComplete="email" placeholder="Email — если удобнее ответ на почту" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <textarea required aria-label="Ваш вопрос" placeholder="Ваш вопрос" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
         <button className="btn" type="submit" disabled={isSubmitting}>{isSubmitting ? "Отправляем…" : "Отправить"}</button>
-        {status && <p className="form-hint">{status}</p>}
+        {status && <p className="form-hint" role="status">{status}</p>}
       </form>
     </section>
   );
