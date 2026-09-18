@@ -9,6 +9,7 @@
     "server": "node server/index.js",
     "build": "vite build",
     "test": "node --test server/*.test.js",
+    "demo:practice": "node scripts/practice-demo.mjs",
     "preview": "vite preview",
     "start": "node server/index.js"
   },

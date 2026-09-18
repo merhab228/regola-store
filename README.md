@@ -1,6 +1,37 @@
 # Regola — магазин дверных ручек
 
+[![Тесты и сборка](https://github.com/merhab228/regola-store/actions/workflows/ci-deploy.yml/badge.svg?branch=main)](https://github.com/merhab228/regola-store/actions/workflows/ci-deploy.yml)
+
 React (Vite) + Express + SQLite. Цены товаров задаются вручную через админ-панель.
+
+**Работающий сайт:** [regola.shop](https://regola.shop).
+
+## Материалы производственной практики ПМ11
+
+Regola Store — собственный проект автора. Ссылка на выбранный проект: этот репозиторий.
+
+- [Технический паспорт, архитектура, модель данных, API и таблица реализации](docs/practice/README.md).
+- [Демонстрация сохранения заказа и проверки цены](https://regola.shop/practice/index.html).
+- [Запись asciinema в репозитории](public/practice/checkout.cast).
+- [Страница воспроизведения записи в исходниках](public/practice/index.html).
+
+Демонстрация показывает выполнение настоящего `server/checkout.js` на учебных данных в SQLite в памяти: создание заказа, запись позиций, серверный расчет цены и отклонение отрицательного количества. Она не вызывает внешние API.
+
+Повторить демонстрацию после установки зависимостей:
+
+```bash
+npm run demo:practice
+```
+
+Проверка проекта:
+
+```bash
+npm ci
+npm test
+npm run build
+```
+
+Бейдж выше показывает реальный статус GitHub Actions. Он не является оценкой Code Climate или Qlty.
 
 ## Локальный запуск
 
