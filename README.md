@@ -11,7 +11,7 @@ React (Vite) + Express + SQLite. Цены товаров задаются вру
 Regola Store — собственный проект автора. Ссылка на выбранный проект: этот репозиторий.
 
 - [Технический паспорт, архитектура, модель данных, API и таблица реализации](docs/practice/README.md).
-- [Демонстрация сохранения заказа и проверки цены](https://regola.shop/practice/index.html).
+- [Демонстрация сохранения заказа и проверки цены](https://merhab228.github.io/regola-store/).
 - [Запись asciinema в репозитории](public/practice/checkout.cast).
 - [Страница воспроизведения записи в исходниках](public/practice/index.html).
 
