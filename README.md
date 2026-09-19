@@ -1,6 +1,7 @@
 # Regola — магазин дверных ручек
 
 [![Тесты и сборка](https://github.com/merhab228/regola-store/actions/workflows/ci-deploy.yml/badge.svg?branch=main)](https://github.com/merhab228/regola-store/actions/workflows/ci-deploy.yml)
+[![Maintainability](https://qlty.sh/gh/merhab228/projects/regola-store/maintainability.svg)](https://qlty.sh/gh/merhab228/projects/regola-store)
 
 React (Vite) + Express + SQLite. Цены товаров задаются вручную через админ-панель.
 
@@ -31,7 +32,7 @@ npm test
 npm run build
 ```
 
-Бейдж выше показывает реальный статус GitHub Actions. Он не является оценкой Code Climate или Qlty.
+Бейджи выше показывают реальный статус GitHub Actions и динамическую оценку сопровождаемости Qlty. Первый анализ Qlty для ветки `main` завершился успешно с оценкой **C**; подробный результат доступен по ссылке с бейджа.
 
 ## Локальный запуск
 
